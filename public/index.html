@@ -294,9 +294,7 @@ function setBase(i) {
   if (base) map.removeLayer(base);
   clearTimeout(baseWatch);
   bi = i; const b = BASES[i];
-  base = L.tileLayer(b.u, { maxZoom: 19, subdomains: 'abc', attribution: b.a }).addTo(map);
-  base.bringToBack();
-  $('#map').classList.toggle('dark-tiles', dark && b.f);
+  base = L.tileLayer(b.u, { maxZoom: 19, subdomains: 'abc', attribution: b.a });
   // Se o servidor do mapa não entregar nenhuma imagem em 8 s (ou só der erro), troca para o mapa de ruas
   if (i !== 1) {
     const me = base; let ok = 0, bad = 0;
@@ -306,6 +304,8 @@ function setBase(i) {
     me.on('tileerror', () => { if (++bad >= 6) check(); });
     me.on('load', () => clearTimeout(baseWatch));
   }
+  base.addTo(map).bringToBack();
+  $('#map').classList.toggle('dark-tiles', dark && b.f);
 }
 function fallbackBase(name) {
   setBase(1);
