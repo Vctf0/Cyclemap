@@ -884,22 +884,29 @@ function placePop(title, sub, lat, lng) {
 const pinIcon = (emoji, color, small) => L.divIcon({ className: '', iconSize: small ? [26, 26] : [30, 30], iconAnchor: small ? [13, 13] : [15, 15],
   html: `<div class="pin${small ? ' sm' : ''}" style="--c:${color}">${emoji}</div>` });
 
-// Dados do OpenStreetMap, buscados pela função /api/osm do próprio site
-async function osm(params) {
-  const r = await fetch('/api/osm?' + new URLSearchParams(params));
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
-  return j.elements || [];
+// Lugares do OpenStreetMap via Photon (até 50 por consulta; uma consulta por tipo)
+async function places(groups, box) {
+  const bb = [box.w, box.s, box.e, box.n].map(x => (+x).toFixed(4)).join(',');
+  const res = await Promise.allSettled(groups.map(async inc => {
+    const r = await fetch(`https://photon.komoot.io/api/?include=${inc}&limit=50&bbox=${bb}&lang=default`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return ((await r.json()).features || []).map(f => ({
+      lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1],
+      tags: { [f.properties.osm_key]: f.properties.osm_value, name: f.properties.name }
+    }));
+  }));
+  if (res.every(x => x.status === 'rejected')) throw new Error('sem resposta');
+  return res.flatMap(x => x.status === 'fulfilled' ? x.value : []);
 }
 const elLL = e => e.lat != null ? [e.lat, e.lon] : e.center ? [e.center.lat, e.center.lon] : null;
 
 // Pontos de apoio: postos, bicicletarias, estações de reparo, água, banheiros
 const POI = [
-  { k: 'fuel', e: '⛽', c: '#f59f00', n: 'Postos de combustível', one: 'Posto de combustível', d: 'Água, banheiro e calibragem de pneus', q: '["amenity"="fuel"]', t: t => t.amenity === 'fuel' },
-  { k: 'bike', e: '🚲', c: '#1971c2', n: 'Bicicletarias', one: 'Bicicletaria', d: 'Lojas e oficinas de bicicleta', q: '["shop"="bicycle"]', t: t => t.shop === 'bicycle' },
-  { k: 'repair', e: '🔧', c: '#868e96', n: 'Estações de reparo', one: 'Estação de reparo', d: 'Ferramentas e bomba de ar públicas', q: '["amenity"="bicycle_repair_station"]', t: t => t.amenity === 'bicycle_repair_station' },
-  { k: 'water', e: '💧', c: '#0c8599', n: 'Bebedouros', one: 'Bebedouro', d: 'Água potável gratuita', q: '["amenity"="drinking_water"]', t: t => t.amenity === 'drinking_water' },
-  { k: 'wc', e: '🚻', c: '#7950f2', n: 'Banheiros públicos', one: 'Banheiro público', d: 'Sanitários de acesso público', q: '["amenity"="toilets"]', t: t => t.amenity === 'toilets' }
+  { k: 'fuel', inc: 'osm.amenity.fuel', e: '⛽', c: '#f59f00', n: 'Postos de combustível', one: 'Posto de combustível', d: 'Água, banheiro e calibragem de pneus', q: '["amenity"="fuel"]', t: t => t.amenity === 'fuel' },
+  { k: 'bike', inc: 'osm.shop.bicycle', e: '🚲', c: '#1971c2', n: 'Bicicletarias', one: 'Bicicletaria', d: 'Lojas e oficinas de bicicleta', q: '["shop"="bicycle"]', t: t => t.shop === 'bicycle' },
+  { k: 'repair', inc: 'osm.amenity.bicycle_repair_station', e: '🔧', c: '#868e96', n: 'Estações de reparo', one: 'Estação de reparo', d: 'Ferramentas e bomba de ar públicas', q: '["amenity"="bicycle_repair_station"]', t: t => t.amenity === 'bicycle_repair_station' },
+  { k: 'water', inc: 'osm.amenity.drinking_water', e: '💧', c: '#0c8599', n: 'Bebedouros', one: 'Bebedouro', d: 'Água potável gratuita', q: '["amenity"="drinking_water"]', t: t => t.amenity === 'drinking_water' },
+  { k: 'wc', inc: 'osm.amenity.toilets', e: '🚻', c: '#7950f2', n: 'Banheiros públicos', one: 'Banheiro público', d: 'Sanitários de acesso público', q: '["amenity"="toilets"]', t: t => t.amenity === 'toilets' }
 ];
 let poiOn = { fuel: true, bike: true };
 try { const v = JSON.parse(localStorage.getItem('poi')); if (v && typeof v === 'object') poiOn = v; } catch (e) {}
@@ -926,14 +933,14 @@ async function poiLoad(force) {
   const box = { s: Math.floor(pb.getSouth() * G) / G, w: Math.floor(pb.getWest() * G) / G, n: Math.ceil(pb.getNorth() * G) / G, e: Math.ceil(pb.getEast() * G) / G };
   const id = ++poiReq; poiStat('Carregando pontos…');
   try {
-    const els = await osm({ kind: 'poi', ...box, cats: cats.map(c => c.k).join(',') });
+    const els = await places(cats.map(c => c.inc), box);
     if (id !== poiReq) return;
     poiLayer.clearLayers(); poiBounds = L.latLngBounds([box.s, box.w], [box.n, box.e]);
     let n = 0;
     els.forEach(e => {
       const ll = elLL(e), t = e.tags || {}, c = ll && cats.find(x => x.t(t)); if (!c) return;
       const name = t.name || t.brand || c.one;
-      const sub = (t.name || t.brand ? c.one : c.d) + (t.opening_hours ? ' · ' + t.opening_hours : '');
+      const sub = t.name || t.brand ? c.one : c.d;
       L.marker(ll, { icon: pinIcon(c.e, c.c, true), keyboard: false, title: name }).bindPopup(() => placePop(name, sub, ll[0], ll[1])).addTo(poiLayer);
       n++;
     });
@@ -946,12 +953,12 @@ poiLoad(true);
 
 // Descobrir lugares: praias, praças, museus, bicas, cachoeiras, mirantes...
 const DCAT = [
-  { k: 'praia', e: '🏖️', c: '#f08c00', n: 'Praias', one: 'Praia', t: t => t.natural === 'beach' },
-  { k: 'praca', e: '🌳', c: '#2f9e44', n: 'Praças e parques', one: 'Praça ou parque', t: t => t.leisure === 'park' || t.place === 'square' },
-  { k: 'cultura', e: '🏛️', c: '#9c36b5', n: 'Museus e cultura', one: 'Museu ou cultura', t: t => /^(museum|gallery)$/.test(t.tourism || '') || /^(arts_centre|theatre)$/.test(t.amenity || '') },
-  { k: 'agua', e: '💦', c: '#1971c2', n: 'Bicas e cachoeiras', one: 'Bica ou cachoeira', t: t => t.natural === 'spring' || t.waterway === 'waterfall' },
-  { k: 'mirante', e: '🔭', c: '#0c8599', n: 'Mirantes', one: 'Mirante', t: t => t.tourism === 'viewpoint' },
-  { k: 'turismo', e: '⭐', c: '#e8590c', n: 'Pontos turísticos', one: 'Ponto turístico', t: t => t.tourism === 'attraction' || t.historic === 'monument' }
+  { k: 'praia', inc: 'osm.natural.beach', e: '🏖️', c: '#f08c00', n: 'Praias', one: 'Praia', t: t => t.natural === 'beach' },
+  { k: 'praca', inc: 'osm.leisure.park,osm.place.square', e: '🌳', c: '#2f9e44', n: 'Praças e parques', one: 'Praça ou parque', t: t => t.leisure === 'park' || t.place === 'square' },
+  { k: 'cultura', inc: 'osm.tourism.museum,osm.tourism.gallery,osm.amenity.arts_centre,osm.amenity.theatre', e: '🏛️', c: '#9c36b5', n: 'Museus e cultura', one: 'Museu ou cultura', t: t => /^(museum|gallery)$/.test(t.tourism || '') || /^(arts_centre|theatre)$/.test(t.amenity || '') },
+  { k: 'agua', inc: 'osm.natural.spring,osm.waterway.waterfall', e: '💦', c: '#1971c2', n: 'Bicas e cachoeiras', one: 'Bica ou cachoeira', t: t => t.natural === 'spring' || t.waterway === 'waterfall' },
+  { k: 'mirante', inc: 'osm.tourism.viewpoint', e: '🔭', c: '#0c8599', n: 'Mirantes', one: 'Mirante', t: t => t.tourism === 'viewpoint' },
+  { k: 'turismo', inc: 'osm.tourism.attraction,osm.historic.monument', e: '⭐', c: '#e8590c', n: 'Pontos turísticos', one: 'Ponto turístico', t: t => t.tourism === 'attraction' || t.historic === 'monument' }
 ];
 const DRAD = [5, 10, 25, 60];
 let dCat = 'tudo', dR = 10, dItems = [], dRef = null, dReq = 0;
@@ -976,12 +983,17 @@ async function dLoad() {
   const id = ++dReq;
   $('#dpStat').textContent = 'Buscando lugares…'; $('#dpList').innerHTML = ''; dLayer.clearLayers();
   try {
-    const els = await osm({ kind: 'disc', lat: ref[0].toFixed(2), lng: ref[1].toFixed(2), r: dR });
+    const bx = r => { const dl = r / 111, dg = r / (111 * Math.cos(rad(ref[0]))); return { s: ref[0] - dl, n: ref[0] + dl, w: ref[1] - dg, e: ref[1] + dg }; };
+    // Cada tipo numa consulta; praças e parques também numa área menor, para garantir os mais próximos
+    const near = dR > 4 ? places(['osm.leisure.park,osm.place.square'], bx(Math.min(4, dR / 2))) : Promise.resolve([]);
+    const [far, close] = await Promise.all([places(DCAT.map(c => c.inc), bx(dR)), near.catch(() => [])]);
+    const els = far.concat(close);
     if (id !== dReq) return;
     const best = new Map();
     els.forEach(e => {
       const ll = elLL(e), t = e.tags || {}, c = ll && DCAT.find(x => x.t(t)); if (!c || !t.name) return;
       const km = dist([ref[1], ref[0]], [ll[1], ll[0]]) / 1000, k = c.k + '|' + t.name.toLowerCase();
+      if (km > dR) return;
       if (!best.has(k) || best.get(k).km > km) best.set(k, { name: t.name, c, lat: ll[0], lng: ll[1], km });
     });
     dItems = [...best.values()].sort((x, y) => x.km - y.km);
