@@ -56,9 +56,11 @@ async function ask(url: string, q: string, ms: number) {
 }
 
 async function overpass(q: string) {
-  // Tenta o servidor principal; se falhar, os reservas em paralelo.
-  try { return await ask(ENDPOINTS[0], q, 18000) } catch {}
-  return await Promise.any(ENDPOINTS.slice(1).map(u => ask(u, q, 25000)))
+  // Consulta os servidores em paralelo e usa a primeira resposta válida (limite total ~20 s).
+  return await Promise.any(ENDPOINTS.map(u => ask(u, q, 20000).catch(e => {
+    console.log(`overpass falhou em ${u}: ${e?.name === "AbortError" ? "tempo esgotado" : e?.message || e}`)
+    throw e
+  })))
 }
 
 export default async (req: Request) => {
@@ -73,13 +75,13 @@ export default async (req: Request) => {
     if (s == null || w == null || no == null || e == null || no <= s || e <= w || !cats.length) return err("Parâmetros inválidos.")
     if ((no - s) * (e - w) > 0.25) return err("Área grande demais. Aproxime o mapa.")
     const bb = [s, w, no, e].map(x => x.toFixed(3)).join(",")
-    q = `[out:json][timeout:20];(${cats.map(c => `nwr${POI[c]}(${bb});`).join("")});out center tags 500;`
+    q = `[out:json][timeout:18];(${cats.map(c => `nwr${POI[c]}(${bb});`).join("")});out center tags 500;`
   } else if (kind === "disc") {
     const lat = n(u.searchParams.get("lat"), -90, 90), lng = n(u.searchParams.get("lng"), -180, 180)
     const r = n(u.searchParams.get("r"), 1, 60)
     if (lat == null || lng == null || r == null) return err("Parâmetros inválidos.")
     const a = `(around:${Math.round(r * 1000)},${lat.toFixed(3)},${lng.toFixed(3)})`
-    q = `[out:json][timeout:25];(${DISC.map(x => x + a + ";").join("")});out center tags 800;`
+    q = `[out:json][timeout:18];(${DISC.map(x => x + a + ";").join("")});out center tags 800;`
   } else return err("Tipo de busca inválido.")
 
   try {
