@@ -9,7 +9,8 @@
 <title>Mapa de ciclismo</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
-:root{--bg:#fff;--ink:#12202a;--mut:#5d6d79;--line:#dfe5e9;--acc:#0b7f74;--accink:#fff;--good:#1b8a4a;--bad:#c93c2a;--sh:0 6px 24px rgba(10,30,40,.2);--sheet-h:0px}
+:root{--nb:0px;--bg:#fff;--ink:#12202a;--mut:#5d6d79;--line:#dfe5e9;--acc:#0b7f74;--accink:#fff;--good:#1b8a4a;--bad:#c93c2a;--sh:0 6px 24px rgba(10,30,40,.2);--sheet-h:0px}
+@media (max-width:820px){:root{--nb:64px}}
 @media (prefers-color-scheme:dark){:root{--bg:#16222b;--ink:#e9f0f3;--mut:#9db0bb;--line:#2a3a45;--acc:#37c2b0;--accink:#06201c;--good:#4cc47e;--bad:#ff7a66;--sh:0 6px 24px rgba(0,0,0,.5)}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -28,7 +29,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .results{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);max-height:40vh;overflow:auto}
 .results button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 16px;border-bottom:1px solid var(--line)}
 .results button:hover{background:var(--line)}
-.sheet{position:absolute;z-index:1000;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:560px;padding:4px 14px 12px}
+.sheet{position:absolute;z-index:1000;left:12px;right:12px;bottom:calc(12px + var(--nb) + env(safe-area-inset-bottom,0px));max-height:calc(100% - 140px - var(--nb));overflow:auto;max-width:560px;padding:4px 14px 12px}
 .sheet[hidden]{display:none}
 .grab{display:block;width:100%;border:0;background:none;padding:6px 0 8px}
 .grab i{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
@@ -71,10 +72,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .btn{border:1px solid var(--line);background:none;border-radius:10px;padding:8px 12px;font-weight:600;color:var(--ink)}
 .btn.main{background:var(--acc);border-color:var(--acc);color:var(--accink)}
 .sheet.min .chips,.sheet.min .blk{display:none}
-.toast{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h) + 24px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:90%;text-align:center}
+.toast{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);bottom:calc(max(var(--sheet-h), var(--nb)) + 24px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:90%;text-align:center}
 .toast[hidden]{display:none}
 .leaflet-bottom{bottom:var(--sheet-h)}
-.fab{position:absolute;z-index:1000;right:12px;width:44px;height:44px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--sh);display:grid;place-items:center}
+.fab{position:absolute;z-index:1000;left:12px;width:44px;height:44px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--sh);display:grid;place-items:center}
 .fab svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #loc{bottom:calc(var(--sheet-h) + 44px)}
 #lay{bottom:calc(var(--sheet-h) + 98px)}
@@ -84,8 +85,28 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .me svg{position:absolute;inset:-8px;width:38px;height:38px;fill:var(--acc);stroke:#fff;stroke-width:1.5;display:none}
 .me.live i{display:none}.me.live svg{display:block}
 #grp{bottom:calc(var(--sheet-h) + 152px)}
+#poi{bottom:calc(var(--sheet-h) + 206px)}
+.disc{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--acc);border-radius:999px;background:none;color:var(--acc);font-size:13px;font-weight:600;padding:3px 10px;white-space:nowrap}
+.disc svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chk{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink);cursor:pointer}
+.gp label.chk{margin-top:0;color:var(--ink);font-size:14px}
+.chk input{width:20px;height:20px;flex:none;accent-color:var(--acc)}
+.chk small{display:block;color:var(--mut);font-size:12px}
+.chk em{font-style:normal;font-size:18px;width:24px;text-align:center}
+.dchips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+.dl{list-style:none;margin:6px 0 0;padding:0}
+.dl button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:none;padding:9px 2px}
+.dl button:hover{background:var(--line)}
+.dl em{font-style:normal;font-size:20px;width:26px;text-align:center;flex:none}
+.dl span{flex:1;min-width:0}
+.dl b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl small{display:block;color:var(--mut);font-size:12.5px}
+.dl .km{text-align:right;flex:none;font-size:13px;font-variant-numeric:tabular-nums}
+.dl .km small{font-size:12px}
+.pin{width:30px;height:30px;border-radius:50%;background:var(--c,#fff);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:grid;place-items:center;font-size:16px;line-height:1}
+.pin.sm{width:26px;height:26px;font-size:14px}
 .fab.on{background:var(--acc)}.fab.on svg{stroke:var(--accink)}
-.gp{position:absolute;z-index:1001;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:420px;margin-left:auto;padding:12px 14px 14px;max-height:calc(100% - 24px);overflow:auto}
+.gp{position:absolute;z-index:1001;left:12px;right:12px;bottom:calc(12px + var(--nb) + env(safe-area-inset-bottom,0px));max-width:420px;padding:12px 14px 14px;max-height:calc(100% - 24px - var(--nb));overflow:auto}
 .gp[hidden]{display:none}
 .gh{display:flex;align-items:center;justify-content:space-between;font-size:16px}
 .x{border:0;background:none;font-size:24px;line-height:1;padding:2px 6px;color:var(--mut)}
@@ -122,7 +143,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
     <input id="q" type="search" placeholder="Para onde você vai pedalar?" aria-label="Destino" autocomplete="off">
     <button class="go" type="submit">Buscar</button>
   </form>
-  <div class="origin">Partida: <b id="orig">buscando sua localização…</b> <button class="link" id="pick" type="button">alterar</button></div>
+  <div class="origin">Partida: <b id="orig">buscando sua localização…</b> <button class="link" id="pick" type="button">alterar</button>
+    <button class="disc" id="discBtn" type="button" aria-controls="dp"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/></svg>Descobrir</button></div>
   <ul class="results" id="results" hidden></ul>
 </div>
 
@@ -186,8 +208,28 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
   <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.8 14.3A5 5 0 0 1 21.5 19"/></svg>
 </button>
 
+<button class="fab" id="poi" type="button" aria-label="Pontos de apoio no mapa" title="Pontos de apoio (postos, bicicletarias, água)" aria-pressed="false">
+  <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/></svg>
+</button>
+
+<section class="gp panel" id="pp" hidden aria-labelledby="ppTitle">
+  <div class="gh"><b id="ppTitle">Pontos de apoio</b><button class="x" data-close type="button" aria-label="Fechar">×</button></div>
+  <p class="gs">Mostra no mapa os pontos da área visível. Aproxime o mapa para ver mais detalhes.</p>
+  <div id="ppList"></div>
+  <div class="gst" id="ppStat"></div>
+</section>
+
+<section class="gp panel" id="dp" hidden aria-labelledby="dpTitle">
+  <div class="gh"><b id="dpTitle">Descobrir lugares</b><button class="x" data-close type="button" aria-label="Fechar">×</button></div>
+  <p class="gs" id="dpFrom">Lugares perto de você. Toque em um para traçar a rota.</p>
+  <div class="dchips" id="dpCats"></div>
+  <div class="dchips" id="dpRad"></div>
+  <div class="gst" id="dpStat"></div>
+  <ul class="dl" id="dpList"></ul>
+</section>
+
 <section class="gp panel" id="gp" hidden aria-labelledby="gpTitle">
-  <div class="gh"><b id="gpTitle">Pedalar em grupo</b><button class="x" id="gpClose" type="button" aria-label="Fechar">×</button></div>
+  <div class="gh"><b id="gpTitle">Pedalar em grupo</b><button class="x" id="gpClose" data-close type="button" aria-label="Fechar">×</button></div>
   <p class="gs">Só quem usar o mesmo código vê sua posição, e só enquanto a opção abaixo estiver ligada. Trate o código como uma senha: combine um que seja difícil de adivinhar.</p>
   <label>Seu nome no mapa <input id="gName" type="text" maxlength="24" autocomplete="nickname" placeholder="Ex.: Victor"></label>
   <label>Código do grupo <input id="gCode" type="text" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ex.: pedal-sabado-beira-mar-27"></label>
@@ -225,7 +267,7 @@ function segDist(p, a, b) { // distância em metros do ponto p ao segmento a-b
 }
 
 // Mapa e estilos
-const map = L.map('map', { zoomControl: false }).setView([-14.2, -51.9], 4);
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-14.2, -51.9], 4);
 const BASES = [
   { n: 'Ciclismo (ciclovias em destaque)', u: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', a: '© OpenStreetMap, CyclOSM', f: false },
   { n: 'Ruas', u: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', a: 'Tiles © Esri, HERE, Garmin, OpenStreetMap', f: true },
@@ -240,6 +282,7 @@ function setBase(i) {
   $('#map').classList.toggle('dark-tiles', dark && b.f);
 }
 setBase(bi);
+L.control.attribution({ position: 'bottomleft' }).addTo(map);
 $('#lay').onclick = () => { setBase((bi + 1) % BASES.length); toast('Mapa: ' + BASES[bi].n, 2000); };
 
 const layer = L.layerGroup().addTo(map);
@@ -259,10 +302,12 @@ function toast(msg, ms = 3500) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(tT); tT = setTimeout(() => t.hidden = true, ms);
 }
-new ResizeObserver(() => {
+function sheetH() {
   const s = $('#sheet');
-  document.documentElement.style.setProperty('--sheet-h', s.hidden ? '0px' : (s.offsetHeight + 12) + 'px');
-}).observe($('#sheet'));
+  document.documentElement.style.setProperty('--sheet-h', s.hidden ? '0px' : Math.max(0, innerHeight - s.getBoundingClientRect().top) + 'px');
+}
+new ResizeObserver(sheetH).observe($('#sheet'));
+addEventListener('resize', sheetH);
 $('#grab').onclick = () => {
   const m = $('#sheet').classList.toggle('min');
   $('#grab').setAttribute('aria-expanded', String(!m));
@@ -709,19 +754,12 @@ try { $('#gName').value = localStorage.getItem('gname') || ''; $('#gCode').value
 
 const gAgo = s => s < 15 ? 'agora' : s < 60 ? `há ${s} s` : `há ${Math.round(s / 60)} min`;
 function gOpen(show) {
-  $('#gp').hidden = !show;
+  showPanel(show ? 'gp' : null);
   if (show && !gOn && !$('#gName').value) $('#gName').focus();
 }
 $('#grp').onclick = () => gOpen($('#gp').hidden);
-$('#gpClose').onclick = () => gOpen(false);
 
-function gRouteTo(o) {
-  if (!origin && gPos) setOrigin(gPos.latitude, gPos.longitude, 'minha localização');
-  dest = { lat: o.lat, lng: o.lng };
-  $('#q').value = o.name;
-  map.closePopup(); gOpen(false);
-  getRoutes();
-}
+function gRouteTo(o) { goTo(o.name, o.lat, o.lng); }
 function gPopup(o) {
   const d = document.createElement('div'); d.className = 'bpop';
   const b = document.createElement('b'); b.textContent = o.name;
@@ -818,6 +856,174 @@ addEventListener('pagehide', () => {
   try { fetch('/api/grupo', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ group: $('#gCode').value.trim(), id: gId, off: true }) }); } catch (e) {}
 });
 addEventListener('pageshow', e => { if (e.persisted && gOn) gTick(); });
+
+// Painéis (só um aberto por vez) e "ir até um lugar"
+const PANELS = ['gp', 'pp', 'dp'];
+function showPanel(id) {
+  PANELS.forEach(p => { $('#' + p).hidden = p !== id; });
+  if (id !== 'dp') dLayer.clearLayers();
+}
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => showPanel(null));
+function goTo(name, lat, lng) {
+  if (!origin && gPos) setOrigin(gPos.latitude, gPos.longitude, 'minha localização');
+  dest = { lat, lng };
+  $('#q').value = name;
+  map.closePopup(); showPanel(null);
+  if (!origin) { toast('Defina a partida primeiro: permita a localização ou toque em “alterar”.', 5000); return; }
+  getRoutes();
+}
+function placePop(title, sub, lat, lng) {
+  const d = document.createElement('div'); d.className = 'bpop';
+  const b = document.createElement('b'); b.textContent = title;
+  const s = document.createElement('small'); s.textContent = sub;
+  const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Traçar rota até aqui';
+  btn.onclick = () => goTo(title, lat, lng);
+  d.append(b, s, btn);
+  return d;
+}
+const pinIcon = (emoji, color, small) => L.divIcon({ className: '', iconSize: small ? [26, 26] : [30, 30], iconAnchor: small ? [13, 13] : [15, 15],
+  html: `<div class="pin${small ? ' sm' : ''}" style="--c:${color}">${emoji}</div>` });
+
+// Dados do OpenStreetMap via Overpass (com servidor reserva)
+const OVP = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+async function overpass(q) {
+  let err;
+  for (const u of OVP) {
+    try {
+      const r = await fetch(u, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
+      if (r.ok) return (await r.json()).elements || [];
+      err = new Error('HTTP ' + r.status);
+    } catch (e) { err = e; }
+  }
+  throw err;
+}
+const elLL = e => e.lat != null ? [e.lat, e.lon] : e.center ? [e.center.lat, e.center.lon] : null;
+
+// Pontos de apoio: postos, bicicletarias, estações de reparo, água, banheiros
+const POI = [
+  { k: 'fuel', e: '⛽', c: '#f59f00', n: 'Postos de combustível', one: 'Posto de combustível', d: 'Água, banheiro e calibragem de pneus', q: '["amenity"="fuel"]', t: t => t.amenity === 'fuel' },
+  { k: 'bike', e: '🚲', c: '#1971c2', n: 'Bicicletarias', one: 'Bicicletaria', d: 'Lojas e oficinas de bicicleta', q: '["shop"="bicycle"]', t: t => t.shop === 'bicycle' },
+  { k: 'repair', e: '🔧', c: '#868e96', n: 'Estações de reparo', one: 'Estação de reparo', d: 'Ferramentas e bomba de ar públicas', q: '["amenity"="bicycle_repair_station"]', t: t => t.amenity === 'bicycle_repair_station' },
+  { k: 'water', e: '💧', c: '#0c8599', n: 'Bebedouros', one: 'Bebedouro', d: 'Água potável gratuita', q: '["amenity"="drinking_water"]', t: t => t.amenity === 'drinking_water' },
+  { k: 'wc', e: '🚻', c: '#7950f2', n: 'Banheiros públicos', one: 'Banheiro público', d: 'Sanitários de acesso público', q: '["amenity"="toilets"]', t: t => t.amenity === 'toilets' }
+];
+let poiOn = { fuel: true, bike: true };
+try { const v = JSON.parse(localStorage.getItem('poi')); if (v && typeof v === 'object') poiOn = v; } catch (e) {}
+const poiLayer = L.layerGroup().addTo(map);
+let poiBounds = null, poiReq = 0, poiTimer = null;
+POI.forEach(c => {
+  const l = document.createElement('label'); l.className = 'chk';
+  const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!poiOn[c.k];
+  i.onchange = () => { poiOn[c.k] = i.checked; try { localStorage.setItem('poi', JSON.stringify(poiOn)); } catch (e) {} poiLoad(true); };
+  const em = document.createElement('em'); em.textContent = c.e; em.setAttribute('aria-hidden', 'true');
+  const sp = document.createElement('span'); sp.textContent = c.n;
+  const sm = document.createElement('small'); sm.textContent = c.d; sp.appendChild(sm);
+  l.append(i, em, sp); $('#ppList').appendChild(l);
+});
+const poiStat = t => { $('#ppStat').textContent = t; };
+async function poiLoad(force) {
+  const cats = POI.filter(c => poiOn[c.k]);
+  $('#poi').classList.toggle('on', cats.length > 0); $('#poi').setAttribute('aria-pressed', String(cats.length > 0));
+  if (!cats.length) { poiReq++; poiLayer.clearLayers(); poiBounds = null; poiStat('Nenhum tipo de ponto selecionado.'); return; }
+  if (map.getZoom() < 13) { poiReq++; poiLayer.clearLayers(); poiBounds = null; poiStat('Aproxime o mapa para ver os pontos.'); return; }
+  const b = map.getBounds();
+  if (!force && poiBounds && poiBounds.contains(b)) return;
+  const pb = b.pad(0.4), bb = [pb.getSouth(), pb.getWest(), pb.getNorth(), pb.getEast()].map(x => x.toFixed(5)).join(',');
+  const id = ++poiReq; poiStat('Carregando pontos…');
+  try {
+    const els = await overpass(`[out:json][timeout:20];(${cats.map(c => `nwr${c.q}(${bb});`).join('')});out center tags 500;`);
+    if (id !== poiReq) return;
+    poiLayer.clearLayers(); poiBounds = pb;
+    let n = 0;
+    els.forEach(e => {
+      const ll = elLL(e), t = e.tags || {}, c = ll && cats.find(x => x.t(t)); if (!c) return;
+      const name = t.name || t.brand || c.one;
+      const sub = (t.name || t.brand ? c.one : c.d) + (t.opening_hours ? ' · ' + t.opening_hours : '');
+      L.marker(ll, { icon: pinIcon(c.e, c.c, true), keyboard: false, title: name }).bindPopup(() => placePop(name, sub, ll[0], ll[1])).addTo(poiLayer);
+      n++;
+    });
+    poiStat(n ? `${n} ${n === 1 ? 'ponto' : 'pontos'} nesta área.` : 'Nenhum ponto destes tipos nesta área.');
+  } catch (err) { if (id === poiReq) poiStat('Não foi possível carregar os pontos agora. Tente mover o mapa de novo.'); }
+}
+map.on('moveend', () => { clearTimeout(poiTimer); poiTimer = setTimeout(() => poiLoad(false), 700); });
+$('#poi').onclick = () => showPanel($('#pp').hidden ? 'pp' : null);
+poiLoad(true);
+
+// Descobrir lugares: praias, praças, museus, bicas, cachoeiras, mirantes...
+const DCAT = [
+  { k: 'praia', e: '🏖️', c: '#f08c00', n: 'Praias', one: 'Praia', t: t => t.natural === 'beach' },
+  { k: 'praca', e: '🌳', c: '#2f9e44', n: 'Praças e parques', one: 'Praça ou parque', t: t => t.leisure === 'park' || t.place === 'square' },
+  { k: 'cultura', e: '🏛️', c: '#9c36b5', n: 'Museus e cultura', one: 'Museu ou cultura', t: t => /^(museum|gallery)$/.test(t.tourism || '') || /^(arts_centre|theatre)$/.test(t.amenity || '') },
+  { k: 'agua', e: '💦', c: '#1971c2', n: 'Bicas e cachoeiras', one: 'Bica ou cachoeira', t: t => t.natural === 'spring' || t.waterway === 'waterfall' },
+  { k: 'mirante', e: '🔭', c: '#0c8599', n: 'Mirantes', one: 'Mirante', t: t => t.tourism === 'viewpoint' },
+  { k: 'turismo', e: '⭐', c: '#e8590c', n: 'Pontos turísticos', one: 'Ponto turístico', t: t => t.tourism === 'attraction' || t.historic === 'monument' }
+];
+const DRAD = [5, 10, 25, 60];
+let dCat = 'tudo', dR = 10, dItems = [], dRef = null, dReq = 0;
+const dCache = new Map(), dLayer = L.layerGroup().addTo(map);
+function dChips() {
+  const mk = (box, items, cur, on) => {
+    box.innerHTML = '';
+    items.forEach(([v, label]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (v === cur ? ' on' : '');
+      b.textContent = label; b.setAttribute('aria-pressed', String(v === cur)); b.onclick = () => on(v); box.appendChild(b);
+    });
+  };
+  mk($('#dpCats'), [['tudo', 'Tudo'], ...DCAT.map(c => [c.k, c.e + ' ' + c.n])], dCat, v => { dCat = v; dChips(); dRender(); });
+  mk($('#dpRad'), DRAD.map(r => [r, 'até ' + r + ' km']), dR, v => { dR = v; dChips(); dLoad(); });
+}
+async function dLoad() {
+  const fromMe = !!origin, ref = origin ? [origin.lat, origin.lng] : [map.getCenter().lat, map.getCenter().lng];
+  dRef = ref;
+  $('#dpFrom').textContent = (fromMe ? 'Lugares perto da sua partida.' : 'Lugares perto do centro do mapa (defina a partida para medir a partir de você).') + ' Toque em um para traçar a rota.';
+  const key = ref.map(x => x.toFixed(2)).join(',') + '|' + dR;
+  if (dCache.has(key)) { dItems = dCache.get(key); dRender(); return; }
+  const id = ++dReq, a = `(around:${dR * 1000},${ref[0].toFixed(5)},${ref[1].toFixed(5)})`;
+  $('#dpStat').textContent = 'Buscando lugares…'; $('#dpList').innerHTML = ''; dLayer.clearLayers();
+  const q = `[out:json][timeout:25];(` + [
+    'nwr["natural"="beach"]["name"]', 'nwr["leisure"="park"]["name"]', 'nwr["place"="square"]["name"]',
+    'nwr["tourism"~"^(museum|gallery|viewpoint|attraction)$"]["name"]', 'nwr["amenity"~"^(arts_centre|theatre)$"]["name"]',
+    'nwr["natural"="spring"]["name"]', 'nwr["waterway"="waterfall"]["name"]', 'nwr["historic"="monument"]["name"]'
+  ].map(x => x + a + ';').join('') + ');out center tags 800;';
+  try {
+    const els = await overpass(q);
+    if (id !== dReq) return;
+    const best = new Map();
+    els.forEach(e => {
+      const ll = elLL(e), t = e.tags || {}, c = ll && DCAT.find(x => x.t(t)); if (!c || !t.name) return;
+      const km = dist([ref[1], ref[0]], [ll[1], ll[0]]) / 1000, k = c.k + '|' + t.name.toLowerCase();
+      if (!best.has(k) || best.get(k).km > km) best.set(k, { name: t.name, c, lat: ll[0], lng: ll[1], km });
+    });
+    dItems = [...best.values()].sort((x, y) => x.km - y.km);
+    dCache.set(key, dItems);
+    dRender();
+  } catch (err) { if (id === dReq) $('#dpStat').textContent = 'Não foi possível buscar lugares agora. Tente de novo em instantes.'; }
+}
+function dRender() {
+  const list = dItems.filter(x => dCat === 'tudo' || x.c.k === dCat).slice(0, 50);
+  const ul = $('#dpList'); ul.innerHTML = ''; dLayer.clearLayers();
+  $('#dpStat').textContent = list.length ? `${list.length}${list.length === 50 ? '+' : ''} lugares em até ${dR} km. Distância e tempo são estimados; a rota mostra o valor exato.` : `Nenhum lugar encontrado em até ${dR} km. Tente aumentar a distância.`;
+  list.forEach(x => {
+    const road = x.km * 1.3, min = road / Math.max(5, speed) * 60;
+    const tm = min < 60 ? Math.max(1, Math.round(min)) + ' min' : fmtTime(min / 60);
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button';
+    const em = document.createElement('em'); em.textContent = x.c.e; em.setAttribute('aria-hidden', 'true');
+    const sp = document.createElement('span'), nb = document.createElement('b'), sm = document.createElement('small');
+    nb.textContent = x.name; sm.textContent = x.c.one; sp.append(nb, sm);
+    const kmEl = document.createElement('span'); kmEl.className = 'km'; kmEl.textContent = '≈ ' + fmtKm(road * 1000);
+    const ts = document.createElement('small'); ts.textContent = '~' + tm + ' de bike'; kmEl.appendChild(ts);
+    b.append(em, sp, kmEl);
+    b.onclick = () => goTo(x.name, x.lat, x.lng);
+    li.appendChild(b); ul.appendChild(li);
+    L.marker([x.lat, x.lng], { icon: pinIcon(x.c.e, x.c.c), title: x.name })
+      .bindPopup(() => placePop(x.name, `${x.c.one} · ≈ ${fmtKm(road * 1000)} · ~${tm}`, x.lat, x.lng)).addTo(dLayer);
+  });
+}
+$('#discBtn').onclick = () => {
+  if (!$('#dp').hidden) { showPanel(null); return; }
+  showPanel('dp'); dChips(); dLoad();
+};
 
 locate(true);
 </script>
