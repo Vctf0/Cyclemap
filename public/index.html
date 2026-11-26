@@ -297,11 +297,13 @@ function setBase(i) {
   base = L.tileLayer(b.u, { maxZoom: 19, subdomains: 'abc', attribution: b.a });
   // Se o servidor do mapa não entregar nenhuma imagem em 8 s (ou só der erro), troca para o mapa de ruas
   if (i !== 1) {
-    const me = base; let ok = 0, bad = 0;
-    const check = () => { if (base === me && !ok) fallbackBase(b.n); };
-    me.on('loading', () => { ok = 0; bad = 0; clearTimeout(baseWatch); baseWatch = setTimeout(check, 8000); });
+    const me = base; let ok = 0, bad = 0, asked = 0;
+    // Troca se, depois de 8 s, menos da metade das partes do mapa chegou
+    const check = () => { if (base === me && ok < asked * 0.5) fallbackBase(b.n); };
+    me.on('loading', () => { ok = 0; bad = 0; asked = 0; clearTimeout(baseWatch); baseWatch = setTimeout(check, 8000); });
+    me.on('tileloadstart', () => { asked++; });
     me.on('tileload', () => { ok++; });
-    me.on('tileerror', () => { if (++bad >= 6) check(); });
+    me.on('tileerror', () => { if (++bad >= 6 && bad > ok) fallbackBase(b.n); });
     me.on('load', () => clearTimeout(baseWatch));
   }
   base.addTo(map).bringToBack();
