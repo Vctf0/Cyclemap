@@ -884,18 +884,12 @@ function placePop(title, sub, lat, lng) {
 const pinIcon = (emoji, color, small) => L.divIcon({ className: '', iconSize: small ? [26, 26] : [30, 30], iconAnchor: small ? [13, 13] : [15, 15],
   html: `<div class="pin${small ? ' sm' : ''}" style="--c:${color}">${emoji}</div>` });
 
-// Dados do OpenStreetMap via Overpass (com servidor reserva)
-const OVP = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-async function overpass(q) {
-  let err;
-  for (const u of OVP) {
-    try {
-      const r = await fetch(u, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q) });
-      if (r.ok) return (await r.json()).elements || [];
-      err = new Error('HTTP ' + r.status);
-    } catch (e) { err = e; }
-  }
-  throw err;
+// Dados do OpenStreetMap, buscados pela função /api/osm do próprio site
+async function osm(params) {
+  const r = await fetch('/api/osm?' + new URLSearchParams(params));
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+  return j.elements || [];
 }
 const elLL = e => e.lat != null ? [e.lat, e.lon] : e.center ? [e.center.lat, e.center.lon] : null;
 
@@ -928,12 +922,13 @@ async function poiLoad(force) {
   if (map.getZoom() < 13) { poiReq++; poiLayer.clearLayers(); poiBounds = null; poiStat('Aproxime o mapa para ver os pontos.'); return; }
   const b = map.getBounds();
   if (!force && poiBounds && poiBounds.contains(b)) return;
-  const pb = b.pad(0.4), bb = [pb.getSouth(), pb.getWest(), pb.getNorth(), pb.getEast()].map(x => x.toFixed(5)).join(',');
+  const pb = b.pad(0.3), G = 50; // arredonda para uma grade, para aproveitar o cache
+  const box = { s: Math.floor(pb.getSouth() * G) / G, w: Math.floor(pb.getWest() * G) / G, n: Math.ceil(pb.getNorth() * G) / G, e: Math.ceil(pb.getEast() * G) / G };
   const id = ++poiReq; poiStat('Carregando pontos…');
   try {
-    const els = await overpass(`[out:json][timeout:20];(${cats.map(c => `nwr${c.q}(${bb});`).join('')});out center tags 500;`);
+    const els = await osm({ kind: 'poi', ...box, cats: cats.map(c => c.k).join(',') });
     if (id !== poiReq) return;
-    poiLayer.clearLayers(); poiBounds = pb;
+    poiLayer.clearLayers(); poiBounds = L.latLngBounds([box.s, box.w], [box.n, box.e]);
     let n = 0;
     els.forEach(e => {
       const ll = elLL(e), t = e.tags || {}, c = ll && cats.find(x => x.t(t)); if (!c) return;
@@ -978,15 +973,10 @@ async function dLoad() {
   $('#dpFrom').textContent = (fromMe ? 'Lugares perto da sua partida.' : 'Lugares perto do centro do mapa (defina a partida para medir a partir de você).') + ' Toque em um para traçar a rota.';
   const key = ref.map(x => x.toFixed(2)).join(',') + '|' + dR;
   if (dCache.has(key)) { dItems = dCache.get(key); dRender(); return; }
-  const id = ++dReq, a = `(around:${dR * 1000},${ref[0].toFixed(5)},${ref[1].toFixed(5)})`;
+  const id = ++dReq;
   $('#dpStat').textContent = 'Buscando lugares…'; $('#dpList').innerHTML = ''; dLayer.clearLayers();
-  const q = `[out:json][timeout:25];(` + [
-    'nwr["natural"="beach"]["name"]', 'nwr["leisure"="park"]["name"]', 'nwr["place"="square"]["name"]',
-    'nwr["tourism"~"^(museum|gallery|viewpoint|attraction)$"]["name"]', 'nwr["amenity"~"^(arts_centre|theatre)$"]["name"]',
-    'nwr["natural"="spring"]["name"]', 'nwr["waterway"="waterfall"]["name"]', 'nwr["historic"="monument"]["name"]'
-  ].map(x => x + a + ';').join('') + ');out center tags 800;';
   try {
-    const els = await overpass(q);
+    const els = await osm({ kind: 'disc', lat: ref[0].toFixed(2), lng: ref[1].toFixed(2), r: dR });
     if (id !== dReq) return;
     const best = new Map();
     els.forEach(e => {
