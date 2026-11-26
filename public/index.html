@@ -7,6 +7,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Mapa de ciclismo</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Cyclemap">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
 :root{--nb:0px;--bg:#fff;--ink:#12202a;--mut:#5d6d79;--line:#dfe5e9;--acc:#0b7f74;--accink:#fff;--good:#1b8a4a;--bad:#c93c2a;--sh:0 6px 24px rgba(10,30,40,.2);--sheet-h:0px}
@@ -71,12 +76,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .ctl .sp{flex:1}
 .btn{border:1px solid var(--line);background:none;border-radius:10px;padding:8px 12px;font-weight:600;color:var(--ink)}
 .btn.main{background:var(--acc);border-color:var(--acc);color:var(--accink)}
-.sheet.min .chips,.sheet.min .blk{display:none}
+.sheet.min .chips,.sheet.min .blk:not(.ctl){display:none}
+.grab span{display:block;font-size:12px;color:var(--mut);margin-top:5px}
+.dl li{display:flex;align-items:stretch}
+.dl li>button:first-child{flex:1;min-width:0}
+.dl .del{flex:none;width:auto;border-top:1px solid var(--line);padding:0 10px;color:var(--mut);font-size:20px}
+.bpop button+button{margin-top:6px;background:none;color:#0b7f74;border:1px solid #0b7f74}
 .toast{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);bottom:calc(max(var(--sheet-h), var(--nb)) + 24px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:90%;text-align:center}
 .toast[hidden]{display:none}
 .leaflet-bottom{bottom:var(--sheet-h)}
 .fabs{position:absolute;z-index:1000;left:12px;bottom:calc(var(--sheet-h) + 30px);display:flex;flex-direction:column-reverse;gap:10px}
 @media (max-width:820px){body.sheet-on .fabs{flex-direction:row}}
+.fab[hidden]{display:none}
 .fab{position:relative;flex:none;width:44px;height:44px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--sh);display:grid;place-items:center}
 .fab svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
@@ -154,7 +165,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 </div>
 
 <section class="sheet panel" id="sheet" hidden aria-live="polite">
-  <button class="grab" id="grab" type="button" aria-label="Mostrar ou ocultar detalhes" aria-expanded="true"><i></i></button>
+  <button class="grab" id="grab" type="button" aria-expanded="true"><i></i><span id="grabTxt">Menos detalhes</span></button>
   <div class="chips" id="chips"></div>
   <div class="grid">
     <div class="m"><div class="v" id="mTime">–</div><div class="l">Tempo</div></div>
@@ -207,6 +218,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 </button>
 <button class="fab" id="grp" type="button" aria-label="Pedalar em grupo" title="Pedalar em grupo" aria-pressed="false">
   <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.8 14.3A5 5 0 0 1 21.5 19"/></svg>
+</button>
+<button class="fab" id="inst" type="button" aria-label="Instalar como aplicativo" title="Instalar como aplicativo" hidden>
+  <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
 </button>
 <button class="fab" id="poi" type="button" aria-label="Pontos de apoio no mapa" title="Pontos de apoio (postos, bicicletarias, água)" aria-pressed="false">
   <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/></svg>
@@ -310,10 +324,13 @@ function sheetH() {
 }
 new ResizeObserver(sheetH).observe($('#sheet'));
 addEventListener('resize', sheetH);
-$('#grab').onclick = () => {
-  const m = $('#sheet').classList.toggle('min');
+function setMin(m) {
+  $('#sheet').classList.toggle('min', m);
   $('#grab').setAttribute('aria-expanded', String(!m));
-};
+  $('#grabTxt').textContent = m ? 'Mais detalhes: vento, clima, elevação' : 'Menos detalhes';
+}
+$('#grab').onclick = () => setMin(!$('#sheet').classList.contains('min'));
+const narrow = () => matchMedia('(max-width: 820px)').matches;
 const hhmm = d => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const fmtTime = h => { const m = Math.round(h * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
 const fmtKm = m => (m / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km';
@@ -387,6 +404,7 @@ async function getRoutes(fit = true) {
     });
     sel = 0;
     await Promise.all([loadWeather(), loadElev(routes[0])]);
+    if (fit) setMin(narrow()); // no celular, a rota nova abre resumida
     draw(fit); render();
     $('#toast').hidden = true;
   } catch (err) { toast('Não foi possível traçar uma rota até lá. Tente outro destino.'); }
@@ -874,13 +892,18 @@ function goTo(name, lat, lng) {
   if (!origin) { toast('Defina a partida primeiro: permita a localização ou toque em “alterar”.', 5000); return; }
   getRoutes();
 }
-function placePop(title, sub, lat, lng) {
+function placePop(title, sub, lat, lng, saved) {
   const d = document.createElement('div'); d.className = 'bpop';
   const b = document.createElement('b'); b.textContent = title;
   const s = document.createElement('small'); s.textContent = sub;
   const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Traçar rota até aqui';
   btn.onclick = () => goTo(title, lat, lng);
   d.append(b, s, btn);
+  if (!saved) {
+    const sv = document.createElement('button'); sv.type = 'button'; sv.textContent = '📌 Salvar em Meus lugares';
+    sv.onclick = () => { map.closePopup(); saveMine(title === 'Ponto escolhido no mapa' ? '' : title, lat, lng); };
+    d.appendChild(sv);
+  }
   return d;
 }
 const pinIcon = (emoji, color, small) => L.divIcon({ className: '', iconSize: small ? [26, 26] : [30, 30], iconAnchor: small ? [13, 13] : [15, 15],
@@ -963,6 +986,30 @@ const DCAT = [
   { k: 'turismo', inc: 'osm.tourism.attraction,osm.historic.monument', e: '⭐', c: '#e8590c', n: 'Pontos turísticos', one: 'Ponto turístico', t: t => t.tourism === 'attraction' || t.historic === 'monument' }
 ];
 const DRAD = [5, 10, 25, 60];
+const MINE = { k: 'meus', e: '📌', c: '#e64980', n: 'Meus lugares', one: 'Meu lugar' };
+let mine = [];
+try { const v = JSON.parse(localStorage.getItem('mine')); if (Array.isArray(v)) mine = v.filter(x => x && typeof x.name === 'string' && isFinite(x.lat) && isFinite(x.lng)); } catch (e) {}
+const keepMine = () => { try { localStorage.setItem('mine', JSON.stringify(mine)); } catch (e) {} };
+function saveMine(name, lat, lng) {
+  const n = prompt('Nome para salvar em Meus lugares:', name || '');
+  if (n === null) return;
+  const nm = n.trim().slice(0, 60) || 'Meu lugar';
+  mine.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: nm, lat: +lat.toFixed(6), lng: +lng.toFixed(6) });
+  keepMine();
+  toast(`“${nm}” salvo em Meus lugares (no Descobrir).`);
+  if (!$('#dp').hidden) dRender();
+}
+function delMine(id) {
+  const x = mine.find(m => m.id === id); if (!x) return;
+  if (!confirm(`Remover “${x.name}” de Meus lugares?`)) return;
+  mine = mine.filter(m => m.id !== id); keepMine(); dRender();
+}
+// Toque e segure no mapa (ou botão direito) para salvar um ponto ou traçar rota até ele
+map.on('contextmenu', e => {
+  if (picking) return;
+  const { lat, lng } = e.latlng;
+  L.popup().setLatLng(e.latlng).setContent(placePop('Ponto escolhido no mapa', 'Salve com um nome para achar depois.', lat, lng)).openOn(map);
+});
 let dCat = 'tudo', dR = 10, dItems = [], dRef = null, dReq = 0;
 const dCache = new Map(), dLayer = L.layerGroup().addTo(map);
 function dChips() {
@@ -973,7 +1020,7 @@ function dChips() {
       b.textContent = label; b.setAttribute('aria-pressed', String(v === cur)); b.onclick = () => on(v); box.appendChild(b);
     });
   };
-  mk($('#dpCats'), [['tudo', 'Tudo'], ...DCAT.map(c => [c.k, c.e + ' ' + c.n])], dCat, v => { dCat = v; dChips(); dRender(); });
+  mk($('#dpCats'), [['tudo', 'Tudo'], [MINE.k, MINE.e + ' ' + MINE.n], ...DCAT.map(c => [c.k, c.e + ' ' + c.n])], dCat, v => { dCat = v; dChips(); dRender(); });
   mk($('#dpRad'), DRAD.map(r => [r, 'até ' + r + ' km']), dR, v => { dR = v; dChips(); dLoad(); });
 }
 async function dLoad() {
@@ -1001,12 +1048,20 @@ async function dLoad() {
     dItems = [...best.values()].sort((x, y) => x.km - y.km);
     dCache.set(key, dItems);
     dRender();
-  } catch (err) { if (id === dReq) $('#dpStat').textContent = 'Não foi possível buscar lugares agora. Tente de novo em instantes.'; }
+  } catch (err) {
+    if (id !== dReq) return;
+    dItems = []; dRender();
+    if (dCat !== 'meus') $('#dpStat').textContent = 'Não foi possível buscar lugares agora. Tente de novo em instantes.';
+  }
 }
 function dRender() {
-  const list = dItems.filter(x => dCat === 'tudo' || x.c.k === dCat).slice(0, 50);
+  const ref = dRef || [map.getCenter().lat, map.getCenter().lng];
+  const my = mine.map(m => ({ name: m.name, c: MINE, lat: m.lat, lng: m.lng, id: m.id, km: dist([ref[1], ref[0]], [m.lng, m.lat]) / 1000 }));
+  const pool = dCat === 'meus' ? my : dCat === 'tudo' ? my.filter(x => x.km <= dR).concat(dItems) : dItems.filter(x => x.c.k === dCat);
+  const list = pool.slice().sort((a, b) => a.km - b.km).slice(0, 50);
   const ul = $('#dpList'); ul.innerHTML = ''; dLayer.clearLayers();
-  $('#dpStat').textContent = list.length ? `${list.length}${list.length === 50 ? '+' : ''} ${list.length === 1 ? 'lugar' : 'lugares'} em até ${dR} km. Distância e tempo são estimados; a rota mostra o valor exato.` : `Nenhum lugar encontrado em até ${dR} km. Tente aumentar a distância.`;
+  if (dCat === 'meus' && !list.length) { $('#dpStat').textContent = 'Você ainda não salvou lugares. Toque e segure no mapa (no computador, clique com o botão direito) ou use “Salvar” no balão de qualquer lugar.'; return; }
+  $('#dpStat').textContent = dCat === 'meus' ? `${list.length} ${list.length === 1 ? 'lugar salvo' : 'lugares salvos'} neste aparelho.` : list.length ? `${list.length}${list.length === 50 ? '+' : ''} ${list.length === 1 ? 'lugar' : 'lugares'} em até ${dR} km. Distância e tempo são estimados; a rota mostra o valor exato.` : `Nenhum lugar encontrado em até ${dR} km. Tente aumentar a distância.`;
   list.forEach(x => {
     const road = x.km * 1.3, min = road / Math.max(5, speed) * 60;
     const tm = min < 60 ? Math.max(1, Math.round(min)) + ' min' : fmtTime(min / 60);
@@ -1019,15 +1074,34 @@ function dRender() {
     const ts = document.createElement('small'); ts.textContent = '~' + tm + ' de bike'; kmEl.appendChild(ts);
     b.append(em, sp, kmEl);
     b.onclick = () => goTo(x.name, x.lat, x.lng);
-    li.appendChild(b); ul.appendChild(li);
+    li.appendChild(b);
+    if (x.c === MINE) {
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = '×';
+      del.setAttribute('aria-label', 'Remover ' + x.name); del.onclick = () => delMine(x.id);
+      li.appendChild(del);
+    }
+    ul.appendChild(li);
     L.marker([x.lat, x.lng], { icon: pinIcon(x.c.e, x.c.c), title: x.name })
-      .bindPopup(() => placePop(x.name, `${x.c.one} · ≈ ${fmtKm(road * 1000)} · ~${tm}`, x.lat, x.lng)).addTo(dLayer);
+      .bindPopup(() => placePop(x.name, `${x.c.one} · ≈ ${fmtKm(road * 1000)} · ~${tm}`, x.lat, x.lng, x.c === MINE)).addTo(dLayer);
   });
 }
 $('#discBtn').onclick = () => {
   if (!$('#dp').hidden) { showPanel(null); return; }
   showPanel('dp'); dChips(); dLoad();
 };
+
+// Instalar como aplicativo
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installEv = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEv = e; if (!standalone()) $('#inst').hidden = false; });
+addEventListener('appinstalled', () => { installEv = null; $('#inst').hidden = true; toast('Aplicativo instalado. Abra pelo ícone “Cyclemap”.'); });
+if (isIOS && !standalone()) $('#inst').hidden = false;
+$('#inst').onclick = async () => {
+  if (installEv) { installEv.prompt(); const r = await installEv.userChoice.catch(() => null); if (r && r.outcome === 'accepted') $('#inst').hidden = true; installEv = null; return; }
+  if (isIOS) toast('No Safari, toque em Compartilhar (quadrado com seta) e depois em “Adicionar à Tela de Início”.', 9000);
+};
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 
 locate(true);
 </script>
