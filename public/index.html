@@ -289,12 +289,27 @@ const BASES = [
   { n: 'Satélite', u: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', a: 'Tiles © Esri', f: false }
 ];
 let bi = location.protocol === 'file:' ? 1 : 0, base;
+let baseWatch = null;
 function setBase(i) {
   if (base) map.removeLayer(base);
+  clearTimeout(baseWatch);
   bi = i; const b = BASES[i];
   base = L.tileLayer(b.u, { maxZoom: 19, subdomains: 'abc', attribution: b.a }).addTo(map);
   base.bringToBack();
   $('#map').classList.toggle('dark-tiles', dark && b.f);
+  // Se o servidor do mapa não entregar nenhuma imagem em 8 s (ou só der erro), troca para o mapa de ruas
+  if (i !== 1) {
+    const me = base; let ok = 0, bad = 0;
+    const check = () => { if (base === me && !ok) fallbackBase(b.n); };
+    me.on('loading', () => { ok = 0; bad = 0; clearTimeout(baseWatch); baseWatch = setTimeout(check, 8000); });
+    me.on('tileload', () => { ok++; });
+    me.on('tileerror', () => { if (++bad >= 6) check(); });
+    me.on('load', () => clearTimeout(baseWatch));
+  }
+}
+function fallbackBase(name) {
+  setBase(1);
+  toast(`O mapa “${name}” não está respondendo agora. Mostrando o mapa de ruas; use o botão de camadas para tentar de novo.`, 8000);
 }
 setBase(bi);
 L.control.attribution({ position: 'bottomleft' }).addTo(map);
