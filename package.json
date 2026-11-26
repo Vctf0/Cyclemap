@@ -1,0 +1,11 @@
+{
+  "name": "cyclemap",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "latest"
+  },
+  "devDependencies": {
+    "@netlify/functions": "latest"
+  }
+}

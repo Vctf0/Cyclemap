@@ -83,6 +83,35 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .me i{position:absolute;inset:3px;border-radius:50%;background:var(--acc);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
 .me svg{position:absolute;inset:-8px;width:38px;height:38px;fill:var(--acc);stroke:#fff;stroke-width:1.5;display:none}
 .me.live i{display:none}.me.live svg{display:block}
+#grp{bottom:calc(var(--sheet-h) + 152px)}
+.fab.on{background:var(--acc)}.fab.on svg{stroke:var(--accink)}
+.gp{position:absolute;z-index:1001;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:420px;margin-left:auto;padding:12px 14px 14px;max-height:calc(100% - 24px);overflow:auto}
+.gp[hidden]{display:none}
+.gh{display:flex;align-items:center;justify-content:space-between;font-size:16px}
+.x{border:0;background:none;font-size:24px;line-height:1;padding:2px 6px;color:var(--mut)}
+.gs{margin:6px 0 4px;font-size:12.5px;color:var(--mut)}
+.gp label{display:block;font-size:13px;color:var(--mut);margin-top:10px}
+.gp input:not([type=checkbox]){display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-size:16px;padding:8px 10px}
+.gp input:disabled{opacity:.6}
+.gp label.sw{display:flex;gap:10px;align-items:center;color:var(--ink);font-weight:600;font-size:14px;margin-top:14px}
+.sw input{width:22px;height:22px;flex:none;accent-color:var(--acc)}
+.gst{font-size:12.5px;color:var(--mut);margin-top:10px}
+.gl{list-style:none;margin:8px 0 0;padding:0}
+.gl li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.gl li i{width:12px;height:12px;border-radius:50%;flex:none}
+.gl li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gl li small{color:var(--mut);font-size:12px}
+.gl .btn{padding:5px 10px;font-size:13px}
+.gfit{margin-top:8px;width:100%}
+.gfit[hidden]{display:none}
+.buddy{position:relative;width:22px;height:22px}
+.buddy i{position:absolute;inset:3px;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.buddy span{position:absolute;left:50%;top:22px;transform:translateX(-50%);white-space:nowrap;background:var(--bg);color:var(--ink);font:600 12px/1.25 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:2px 8px;border-radius:999px;box-shadow:var(--sh)}
+.buddy.old{opacity:.5}
+.bpop{font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-width:170px}
+.bpop b{display:block;font-size:15px}
+.bpop small{display:block;color:#5d6d79;margin:2px 0 8px}
+.bpop button{width:100%;border:0;border-radius:9px;background:#0b7f74;color:#fff;font-weight:600;padding:8px 10px}
 </style>
 </head>
 <body>
@@ -153,6 +182,21 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 <button class="fab" id="loc" type="button" aria-label="Centralizar na minha posição" title="Minha posição">
   <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
 </button>
+<button class="fab" id="grp" type="button" aria-label="Pedalar em grupo" title="Pedalar em grupo" aria-pressed="false">
+  <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.8 14.3A5 5 0 0 1 21.5 19"/></svg>
+</button>
+
+<section class="gp panel" id="gp" hidden aria-labelledby="gpTitle">
+  <div class="gh"><b id="gpTitle">Pedalar em grupo</b><button class="x" id="gpClose" type="button" aria-label="Fechar">×</button></div>
+  <p class="gs">Só quem usar o mesmo código vê sua posição, e só enquanto a opção abaixo estiver ligada. Trate o código como uma senha: combine um que seja difícil de adivinhar.</p>
+  <label>Seu nome no mapa <input id="gName" type="text" maxlength="24" autocomplete="nickname" placeholder="Ex.: Victor"></label>
+  <label>Código do grupo <input id="gCode" type="text" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Ex.: pedal-sabado-beira-mar-27"></label>
+  <label class="sw"><input type="checkbox" id="gOn"> Compartilhar minha localização e ver o grupo</label>
+  <div class="gst" id="gStat">Desligado. Sua posição não é enviada a ninguém.</div>
+  <ul class="gl" id="gList"></ul>
+  <button class="btn gfit" id="gFit" type="button" hidden>Ver todos no mapa</button>
+</section>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -649,6 +693,131 @@ $('#loc').onclick = () => {
   if (watch != null && lastLL) { follow = true; map.setView(lastLL, 16); }
   else locate(true);
 };
+
+// Pedalar em grupo: posição compartilhada só com quem tem o mesmo código, só enquanto estiver ligado
+const GCOL = ['#7c4dff', '#e8590c', '#1971c2', '#c2255c', '#2f9e44', '#f08c00', '#0c8599', '#9c36b5'];
+const gColor = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return GCOL[Math.abs(h) % GCOL.length]; };
+let gOn = false, gWatch = null, gPos = null, gTimer = null, gBusy = false, gOthers = [];
+const gMarks = new Map(), gData = new Map(), gLayer = L.layerGroup().addTo(map);
+let gId = null;
+try { gId = localStorage.getItem('gid'); } catch (e) {}
+if (!gId || !/^[A-Za-z0-9-]{16,64}$/.test(gId)) {
+  gId = crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+  try { localStorage.setItem('gid', gId); } catch (e) {}
+}
+try { $('#gName').value = localStorage.getItem('gname') || ''; $('#gCode').value = localStorage.getItem('gcode') || ''; } catch (e) {}
+
+const gAgo = s => s < 15 ? 'agora' : s < 60 ? `há ${s} s` : `há ${Math.round(s / 60)} min`;
+function gOpen(show) {
+  $('#gp').hidden = !show;
+  if (show && !gOn && !$('#gName').value) $('#gName').focus();
+}
+$('#grp').onclick = () => gOpen($('#gp').hidden);
+$('#gpClose').onclick = () => gOpen(false);
+
+function gRouteTo(o) {
+  if (!origin && gPos) setOrigin(gPos.latitude, gPos.longitude, 'minha localização');
+  dest = { lat: o.lat, lng: o.lng };
+  $('#q').value = o.name;
+  map.closePopup(); gOpen(false);
+  getRoutes();
+}
+function gPopup(o) {
+  const d = document.createElement('div'); d.className = 'bpop';
+  const b = document.createElement('b'); b.textContent = o.name;
+  const s = document.createElement('small');
+  const far = gPos ? ' · ' + fmtKm(dist([gPos.longitude, gPos.latitude], [o.lng, o.lat])) + ' de você' : '';
+  s.textContent = 'Atualizado ' + gAgo(o.age) + far + (o.v != null && o.v >= 3 ? ` · ${Math.round(o.v)} km/h` : '');
+  const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Traçar rota até aqui';
+  btn.onclick = () => gRouteTo(o);
+  d.append(b, s, btn);
+  return d;
+}
+function gDraw() {
+  const seen = new Set();
+  gOthers.forEach(o => {
+    seen.add(o.id); gData.set(o.id, o);
+    let m = gMarks.get(o.id);
+    if (!m) {
+      m = L.marker([o.lat, o.lng], { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: `<div class="buddy" style="--c:${gColor(o.id)}"><i></i><span></span></div>` }), keyboard: true, title: '' }).addTo(gLayer);
+      m.bindPopup(() => gPopup(gData.get(o.id) || o));
+      gMarks.set(o.id, m);
+    } else m.setLatLng([o.lat, o.lng]);
+    const el = m.getElement();
+    if (el) { el.querySelector('span').textContent = o.name; el.firstChild.classList.toggle('old', o.age > 30); el.setAttribute('aria-label', o.name); }
+  });
+  gMarks.forEach((m, id) => { if (!seen.has(id)) { gLayer.removeLayer(m); gMarks.delete(id); gData.delete(id); } });
+  const ul = $('#gList'); ul.innerHTML = '';
+  gOthers.forEach(o => {
+    const li = document.createElement('li'), i = document.createElement('i'), sp = document.createElement('span'), sm = document.createElement('small'), b = document.createElement('button');
+    i.style.background = gColor(o.id); sp.textContent = o.name;
+    sm.textContent = (gPos ? fmtKm(dist([gPos.longitude, gPos.latitude], [o.lng, o.lat])) + ' · ' : '') + gAgo(o.age);
+    b.type = 'button'; b.className = 'btn'; b.textContent = 'Ver';
+    b.onclick = () => { follow = false; map.setView([o.lat, o.lng], Math.max(map.getZoom(), 16)); gMarks.get(o.id)?.openPopup(); };
+    li.append(i, sp, sm, b); ul.appendChild(li);
+  });
+  $('#gFit').hidden = !gOthers.length;
+  const n = gOthers.length;
+  $('#gStat').textContent = `Compartilhando como “${$('#gName').value.trim() || 'Ciclista'}”. ` + (n ? `${n} ${n === 1 ? 'pessoa' : 'pessoas'} do grupo no mapa.` : 'Ninguém do grupo online agora.');
+}
+async function gTick() {
+  if (!gOn || !gPos || gBusy) return;
+  gBusy = true;
+  try {
+    const r = await fetch('/api/grupo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+      group: $('#gCode').value.trim(), id: gId, name: $('#gName').value.trim(),
+      lat: gPos.latitude, lng: gPos.longitude, h: gPos.heading, v: gPos.speed != null ? gPos.speed * 3.6 : null }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    if (gOn) { gOthers = j.others || []; gDraw(); }
+  } catch (err) {
+    if (gOn) $('#gStat').textContent = 'Sem conexão com o grupo agora. Tentando de novo…';
+  }
+  gBusy = false;
+}
+function gStart() {
+  const code = $('#gCode').value.trim();
+  if (code.length < 4) { $('#gOn').checked = false; toast('Use um código de grupo com pelo menos 4 caracteres.'); $('#gCode').focus(); return; }
+  if (!navigator.geolocation) { $('#gOn').checked = false; toast('Este navegador não oferece localização.'); return; }
+  try { localStorage.setItem('gname', $('#gName').value.trim()); localStorage.setItem('gcode', code); } catch (e) {}
+  gOn = true;
+  $('#gCode').disabled = $('#gName').disabled = true;
+  $('#grp').classList.add('on'); $('#grp').setAttribute('aria-pressed', 'true');
+  $('#gStat').textContent = 'Buscando sua localização…';
+  gWatch = navigator.geolocation.watchPosition(p => {
+    const first = !gPos; gPos = p.coords;
+    if (first) gTick();
+  }, () => { toast('Sem acesso à localização. O compartilhamento foi desligado.', 5000); gStop(); },
+  { enableHighAccuracy: true, maximumAge: 5000 });
+  gTimer = setInterval(gTick, 5000);
+}
+function gStop() {
+  if (gOn) {
+    try { fetch('/api/grupo', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ group: $('#gCode').value.trim(), id: gId, off: true }) }).catch(() => {}); } catch (e) {}
+  }
+  gOn = false; gPos = null; gOthers = [];
+  if (gWatch != null) navigator.geolocation.clearWatch(gWatch);
+  gWatch = null; clearInterval(gTimer);
+  gLayer.clearLayers(); gMarks.clear(); gData.clear(); $('#gList').innerHTML = ''; $('#gFit').hidden = true;
+  $('#gOn').checked = false;
+  $('#gCode').disabled = $('#gName').disabled = false;
+  $('#grp').classList.remove('on'); $('#grp').setAttribute('aria-pressed', 'false');
+  $('#gStat').textContent = 'Desligado. Sua posição não é enviada a ninguém.';
+}
+$('#gOn').onchange = e => e.target.checked ? gStart() : gStop();
+$('#gFit').onclick = () => {
+  const pts = gOthers.map(o => [o.lat, o.lng]);
+  if (gPos) pts.push([gPos.latitude, gPos.longitude]);
+  if (!pts.length) return;
+  follow = false; gOpen(false);
+  map.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 16 });
+};
+// Ao fechar a página, avisa o grupo que você saiu
+addEventListener('pagehide', () => {
+  if (!gOn) return;
+  try { fetch('/api/grupo', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ group: $('#gCode').value.trim(), id: gId, off: true }) }); } catch (e) {}
+});
+addEventListener('pageshow', e => { if (e.persisted && gOn) gTick(); });
 
 locate(true);
 </script>
