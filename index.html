@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b7f74">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Mapa de ciclismo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bg:#fff;--ink:#12202a;--mut:#5d6d79;--line:#dfe5e9;--acc:#0b7f74;--accink:#fff;--good:#1b8a4a;--bad:#c93c2a;--sh:0 6px 24px rgba(10,30,40,.2);--sheet-h:0px}
+@media (prefers-color-scheme:dark){:root{--bg:#16222b;--ink:#e9f0f3;--mut:#9db0bb;--line:#2a3a45;--acc:#37c2b0;--accink:#06201c;--good:#4cc47e;--bad:#ff7a66;--sh:0 6px 24px rgba(0,0,0,.5)}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+#map{position:absolute;inset:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.panel{background:var(--bg);border-radius:16px;box-shadow:var(--sh)}
+.top{position:absolute;z-index:1000;top:calc(12px + env(safe-area-inset-top,0px));left:12px;right:12px;max-width:520px}
+.search{display:flex;align-items:center}
+.search input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font-size:16px;padding:14px 16px}
+.search .go{margin:6px;border:0;border-radius:11px;background:var(--acc);color:var(--accink);padding:9px 14px;font-weight:600}
+.origin{display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding:7px 16px;font-size:13px;color:var(--mut)}
+.origin b{color:var(--ink);font-weight:600}
+.link{border:0;background:none;color:var(--acc);padding:0;text-decoration:underline}
+.results{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);max-height:40vh;overflow:auto}
+.results button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 16px;border-bottom:1px solid var(--line)}
+.results button:hover{background:var(--line)}
+.sheet{position:absolute;z-index:1000;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:560px;padding:4px 14px 12px}
+.sheet[hidden]{display:none}
+.grab{display:block;width:100%;border:0;background:none;padding:6px 0 8px}
+.grab i{display:block;width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
+.chip{flex:none;border:1px solid var(--line);background:none;border-radius:999px;padding:5px 12px;font-size:13px}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--accink);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px}
+.grid [hidden]{display:none}
+.m .v{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.15}
+.m .l{font-size:12px;color:var(--mut)}
+.blk{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.blk[hidden]{display:none}
+.elev svg{display:block;width:100%;height:56px}
+.ew{position:relative;touch-action:none;cursor:crosshair}
+.cur{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ink);opacity:.6;pointer-events:none}
+.cur[hidden]{display:none}
+.top.hide{display:none}
+.nav{position:absolute;z-index:1000;top:calc(12px + env(safe-area-inset-top,0px));left:12px;right:12px;max-width:520px;display:flex;gap:12px;align-items:center;padding:12px 14px}
+.nav[hidden]{display:none}
+.nav svg{width:38px;height:38px;flex:none;fill:var(--acc)}
+.nav .d{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.1}
+.nav .tx{flex:1;min-width:0;font-size:14px;color:var(--mut)}
+.dep{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--mut)}
+.dep select{border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:14px;padding:6px 8px}
+.dep .hint{flex-basis:100%;font-size:12.5px}
+.elev .area{fill:var(--acc);opacity:.22}.elev .ln{fill:none;stroke:var(--acc);stroke-width:2;vector-effect:non-scaling-stroke}
+.elev .s{font-size:12.5px;color:var(--mut);margin-top:4px}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.info>div{display:flex;gap:8px;align-items:center;min-width:0}
+.info svg{width:30px;height:30px;flex:none;fill:var(--acc)}
+.info .t{font-weight:600}
+.info .s{font-size:12.5px;color:var(--mut)}
+.tail{color:var(--good)}.head{color:var(--bad)}
+.warn{color:var(--bad);font-size:13px;font-weight:600;margin-top:8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:5px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.ctl{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--mut)}
+.ctl input{width:60px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-size:15px;padding:6px 8px}
+.ctl .sp{flex:1}
+.btn{border:1px solid var(--line);background:none;border-radius:10px;padding:8px 12px;font-weight:600;color:var(--ink)}
+.btn.main{background:var(--acc);border-color:var(--acc);color:var(--accink)}
+.sheet.min .chips,.sheet.min .blk{display:none}
+.toast{position:absolute;z-index:1100;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h) + 24px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:13px;max-width:90%;text-align:center}
+.toast[hidden]{display:none}
+.leaflet-bottom{bottom:var(--sheet-h)}
+.fab{position:absolute;z-index:1000;right:12px;width:44px;height:44px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--sh);display:grid;place-items:center}
+.fab svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#loc{bottom:calc(var(--sheet-h) + 44px)}
+#lay{bottom:calc(var(--sheet-h) + 98px)}
+.dark-tiles .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(.9)}
+.me{position:relative;width:22px;height:22px}
+.me i{position:absolute;inset:3px;border-radius:50%;background:var(--acc);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.me svg{position:absolute;inset:-8px;width:38px;height:38px;fill:var(--acc);stroke:#fff;stroke-width:1.5;display:none}
+.me.live i{display:none}.me.live svg{display:block}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top panel">
+  <form class="search" id="form" role="search">
+    <input id="q" type="search" placeholder="Para onde você vai pedalar?" aria-label="Destino" autocomplete="off">
+    <button class="go" type="submit">Buscar</button>
+  </form>
+  <div class="origin">Partida: <b id="orig">buscando sua localização…</b> <button class="link" id="pick" type="button">alterar</button></div>
+  <ul class="results" id="results" hidden></ul>
+</div>
+
+<div class="nav panel" id="nav" hidden aria-live="polite">
+  <svg id="navArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 19 20 12 16 5 20Z"/></svg>
+  <div class="d" id="navDist">–</div>
+  <div class="tx" id="navTxt"></div>
+  <button class="btn" id="voice" type="button" aria-pressed="false">Voz: desligada</button>
+</div>
+
+<section class="sheet panel" id="sheet" hidden aria-live="polite">
+  <button class="grab" id="grab" type="button" aria-label="Mostrar ou ocultar detalhes" aria-expanded="true"><i></i></button>
+  <div class="chips" id="chips"></div>
+  <div class="grid">
+    <div class="m"><div class="v" id="mTime">–</div><div class="l">Tempo</div></div>
+    <div class="m"><div class="v" id="mDist">–</div><div class="l">Distância</div></div>
+    <div class="m"><div class="v" id="mEta">–</div><div class="l">Chegada</div></div>
+    <div class="m" id="cSpeed" hidden><div class="v" id="mSpeed">0</div><div class="l">km/h agora</div></div>
+  </div>
+  <div class="blk dep" id="depBox" hidden>
+    <label for="dep">Saída:</label>
+    <select id="dep"></select>
+    <div class="hint" id="depHint"></div>
+  </div>
+  <div class="blk elev" id="elevBox" hidden>
+    <div class="ew" id="ew">
+      <svg id="elev" viewBox="0 0 300 46" preserveAspectRatio="none" role="img" aria-label="Perfil de elevação da rota. Passe o mouse ou o dedo para ver o local no mapa"></svg>
+      <div class="cur" id="elevCur" hidden></div>
+    </div>
+    <div class="s" id="elevTxt"></div>
+  </div>
+  <div class="blk">
+    <div class="info">
+      <div>
+        <svg id="wArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 19 20 12 16 5 20Z"/></svg>
+        <div><div class="t" id="wTitle">–</div><div class="s" id="wSub"></div></div>
+      </div>
+      <div>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9.5 4.25 4.25 0 0 1 17.5 18Z"/></svg>
+        <div><div class="t" id="cTitle">–</div><div class="s" id="cSub"></div></div>
+      </div>
+    </div>
+    <div class="warn" id="warn" hidden></div>
+    <div class="legend"><span>Cores da rota:</span><span><i style="background:var(--good)"></i>vento a favor</span><span><i style="background:var(--bad)"></i>vento contra</span><span><i style="background:var(--acc)"></i>lateral ou fraco</span></div>
+  </div>
+  <div class="blk ctl">
+    <span class="sp" id="spdNote">Estimativa com sua velocidade típica</span>
+    <button class="btn" id="gpx" type="button">GPX</button>
+    <button class="btn" id="clear" type="button">Limpar</button>
+    <button class="btn main" id="live" type="button">Iniciar</button>
+  </div>
+</section>
+
+<button class="fab" id="lay" type="button" aria-label="Trocar estilo do mapa" title="Trocar estilo do mapa">
+  <svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
+</button>
+<button class="fab" id="loc" type="button" aria-label="Centralizar na minha posição" title="Minha posição">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+</button>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const R = 6371000, rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const C = dark ? { acc: '#37c2b0', good: '#4cc47e', bad: '#ff7a66' } : { acc: '#0b7f74', good: '#1b8a4a', bad: '#c93c2a' };
+
+// Geografia (pontos no formato [lng, lat])
+function dist(a, b) {
+  const dLa = rad(b[1] - a[1]), dLo = rad(b[0] - a[0]);
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function brg(a, b) {
+  const y = Math.sin(rad(b[0] - a[0])) * Math.cos(rad(b[1]));
+  const x = Math.cos(rad(a[1])) * Math.sin(rad(b[1])) - Math.sin(rad(a[1])) * Math.cos(rad(b[1])) * Math.cos(rad(b[0] - a[0]));
+  return (deg(Math.atan2(y, x)) + 360) % 360;
+}
+function segDist(p, a, b) { // distância em metros do ponto p ao segmento a-b
+  const k = Math.cos(rad(p[1])), f = q => [(q[0] - p[0]) * 111320 * k, (q[1] - p[1]) * 110540];
+  const A = f(a), B = f(b), dx = B[0] - A[0], dy = B[1] - A[1];
+  const t = Math.max(0, Math.min(1, -(A[0] * dx + A[1] * dy) / ((dx * dx + dy * dy) || 1)));
+  return Math.hypot(A[0] + t * dx, A[1] + t * dy);
+}
+
+// Mapa e estilos
+const map = L.map('map', { zoomControl: false }).setView([-14.2, -51.9], 4);
+const BASES = [
+  { n: 'Ciclismo (ciclovias em destaque)', u: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', a: '© OpenStreetMap, CyclOSM', f: false },
+  { n: 'Ruas', u: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', a: 'Tiles © Esri, HERE, Garmin, OpenStreetMap', f: true },
+  { n: 'Satélite', u: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', a: 'Tiles © Esri', f: false }
+];
+let bi = location.protocol === 'file:' ? 1 : 0, base;
+function setBase(i) {
+  if (base) map.removeLayer(base);
+  bi = i; const b = BASES[i];
+  base = L.tileLayer(b.u, { maxZoom: 19, subdomains: 'abc', attribution: b.a }).addTo(map);
+  base.bringToBack();
+  $('#map').classList.toggle('dark-tiles', dark && b.f);
+}
+setBase(bi);
+$('#lay').onclick = () => { setBase((bi + 1) % BASES.length); toast('Mapa: ' + BASES[bi].n, 2000); };
+
+const layer = L.layerGroup().addTo(map);
+const meIcon = L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+  html: '<div class="me"><i></i><svg viewBox="0 0 24 24"><path d="M12 2 19 21 12 17 5 21Z"/></svg></div>' });
+const me = L.marker([0, 0], { icon: meIcon, interactive: false, opacity: 0 }).addTo(map);
+
+// Estado
+let origin = null, dest = null, routes = [], sel = 0, W = null, W0 = null, dep = -1;
+let watch = null, follow = true, heading = 0, lastLL = null, lastT = 0, lastRe = 0, picking = false, lock = null;
+let speed = 18, liveSpeed = null, movN = 0; // speed = velocidade típica aprendida nos passeios anteriores
+try { speed = +localStorage.getItem('speed') || 18; } catch (e) {}
+
+// Interface
+let tT;
+function toast(msg, ms = 3500) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(tT); tT = setTimeout(() => t.hidden = true, ms);
+}
+new ResizeObserver(() => {
+  const s = $('#sheet');
+  document.documentElement.style.setProperty('--sheet-h', s.hidden ? '0px' : (s.offsetHeight + 12) + 'px');
+}).observe($('#sheet'));
+$('#grab').onclick = () => {
+  const m = $('#sheet').classList.toggle('min');
+  $('#grab').setAttribute('aria-expanded', String(!m));
+};
+const hhmm = d => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const fmtTime = h => { const m = Math.round(h * 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0'); };
+const fmtKm = m => (m / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' km';
+const wxText = c => c == 0 ? 'Céu limpo' : c <= 2 ? 'Parcialmente nublado' : c == 3 ? 'Nublado' : c <= 48 ? 'Neblina' : c <= 57 ? 'Garoa' : c <= 67 ? 'Chuva' : c <= 77 ? 'Neve' : c <= 82 ? 'Pancadas de chuva' : 'Tempestade';
+const CARD = ['N', 'NE', 'L', 'SE', 'S', 'SO', 'O', 'NO'];
+
+// Partida
+function setOrigin(lat, lng, label) {
+  origin = { lat, lng };
+  $('#orig').textContent = label;
+  me.setLatLng([lat, lng]).setOpacity(1);
+}
+function locate(center = true) {
+  if (!navigator.geolocation) { toast('Este navegador não oferece localização. Use “alterar”.'); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    setOrigin(p.coords.latitude, p.coords.longitude, 'minha localização');
+    if (center) map.setView([p.coords.latitude, p.coords.longitude], 15);
+    if (dest) getRoutes();
+  }, () => {
+    $('#orig').textContent = 'não definida';
+    toast('Sem acesso à localização. Toque em “alterar” e escolha a partida no mapa.', 6000);
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+$('#pick').onclick = () => { picking = true; toast('Toque no mapa para definir a partida.'); };
+map.on('click', e => {
+  if (!picking) return;
+  picking = false;
+  setOrigin(e.latlng.lat, e.latlng.lng, 'ponto escolhido no mapa');
+  if (dest) getRoutes();
+});
+map.on('dragstart', () => { follow = false; });
+
+// Busca de destino
+$('#form').onsubmit = async e => {
+  e.preventDefault();
+  const q = $('#q').value.trim(); if (!q) return;
+  const ul = $('#results'); ul.hidden = false; ul.innerHTML = '<li style="padding:10px 16px;color:var(--mut)">Buscando…</li>';
+  try {
+    let u = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=pt-BR&q=' + encodeURIComponent(q);
+    if (origin) { const d = 0.5; u += `&viewbox=${origin.lng - d},${origin.lat + d},${origin.lng + d},${origin.lat - d}`; }
+    const r = await (await fetch(u)).json();
+    ul.innerHTML = '';
+    if (!r.length) { ul.innerHTML = '<li style="padding:10px 16px;color:var(--mut)">Nada encontrado. Tente incluir a cidade no nome.</li>'; return; }
+    r.forEach(x => {
+      const li = document.createElement('li'), b = document.createElement('button');
+      b.type = 'button'; b.textContent = x.display_name;
+      b.onclick = () => { dest = { lat: +x.lat, lng: +x.lon }; ul.hidden = true; $('#q').value = x.display_name.split(',')[0]; getRoutes(); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+  } catch (err) { ul.innerHTML = '<li style="padding:10px 16px;color:var(--bad)">Falha na busca. Verifique a conexão.</li>'; }
+};
+
+// Rotas de bicicleta
+async function getRoutes(fit = true) {
+  if (!origin) { toast('Defina a partida primeiro.'); return; }
+  if (!dest) return;
+  toast('Traçando rotas…');
+  try {
+    const u = `https://routing.openstreetmap.de/routed-bike/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson&alternatives=true&steps=true`;
+    const j = await (await fetch(u)).json();
+    if (j.code !== 'Ok') throw new Error(j.code);
+    routes = j.routes.slice(0, 3).map(x => {
+      const c = x.geometry.coordinates, cum = [0];
+      for (let i = 1; i < c.length; i++) cum.push(cum[i - 1] + dist(c[i - 1], c[i]));
+      const steps = (x.legs || []).flatMap(l => l.steps || []).map(s => {
+        const m = s.maneuver.location; let bi = 0, bd = Infinity;
+        c.forEach((q, i) => { const d = (q[0] - m[0]) ** 2 + (q[1] - m[1]) ** 2; if (d < bd) { bd = d; bi = i; } });
+        return { at: cum[bi], type: s.maneuver.type, mod: s.maneuver.modifier || '', exit: s.maneuver.exit, name: s.name || '', said: 0 };
+      });
+      return { coords: c, cum, dist: cum[cum.length - 1], idx: 0, elev: undefined, steps };
+    });
+    sel = 0;
+    await Promise.all([loadWeather(), loadElev(routes[0])]);
+    draw(fit); render();
+    $('#toast').hidden = true;
+  } catch (err) { toast('Não foi possível traçar uma rota até lá. Tente outro destino.'); }
+}
+async function pickRoute(i) {
+  sel = i;
+  await Promise.all([loadWeather(), loadElev(routes[i])]);
+  draw(); render();
+}
+
+async function loadWeather() {
+  if (!routes.length) return;
+  const c = routes[sel].coords[Math.floor(routes[sel].coords.length / 2)];
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${c[1]}&longitude=${c[0]}&current=temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,weather_code&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset,precipitation_probability_max&wind_speed_unit=kmh&timezone=auto&forecast_days=2`;
+    const jj = await (await fetch(u)).json(), j = jj.current, d = jj.daily || {};
+    const hh = jj.hourly || {};
+    W0 = { temp: j.temperature_2m, feels: j.apparent_temperature, speed: j.wind_speed_10m, dir: j.wind_direction_10m, code: j.weather_code,
+           sunset: d.sunset ? new Date(d.sunset[0]) : null, rain: d.precipitation_probability_max ? d.precipitation_probability_max[0] : null,
+           sun: d.sunrise ? d.sunrise.map((s, i) => [new Date(s), new Date(d.sunset[i])]) : [],
+           hours: (hh.time || []).map((t, i) => ({ t: new Date(t), temp: hh.temperature_2m[i], feels: hh.apparent_temperature[i], rain: hh.precipitation_probability[i] || 0, code: hh.weather_code[i], speed: hh.wind_speed_10m[i], dir: hh.wind_direction_10m[i] })) };
+    applyDep();
+    buildDep();
+  } catch (err) { W0 = null; W = null; toast('Clima indisponível agora.'); }
+}
+setInterval(() => { if (routes.length) loadWeather().then(() => { draw(); render(); }); }, 600000);
+
+// Horário de saída: usa a previsão por hora para vento, chuva e luz do dia
+function depTime() { return dep < 0 || !W0 || !W0.hours[dep] ? Date.now() : W0.hours[dep].t.getTime(); }
+function applyDep() {
+  if (!W0) { W = null; return; }
+  const h = dep >= 0 ? W0.hours[dep] : null;
+  W = h ? { ...W0, temp: h.temp, feels: h.feels, speed: h.speed, dir: h.dir, code: h.code } : W0;
+}
+function buildDep() {
+  const box = $('#depBox'), el = $('#dep');
+  if (!W0 || !W0.hours.length || watch != null) { box.hidden = true; return; }
+  box.hidden = false;
+  const now = Date.now(), today = new Date().toDateString();
+  let html = '<option value="-1">Agora</option>', n = 0;
+  W0.hours.forEach((x, i) => {
+    if (x.t.getTime() > now && n < 14) { n++; html += `<option value="${i}">${x.t.toDateString() === today ? '' : 'amanhã '}${hhmm(x.t)}</option>`; }
+  });
+  el.innerHTML = html; el.value = String(dep);
+  if (el.value !== String(dep)) { dep = -1; el.value = '-1'; applyDep(); }
+}
+function depHint(r) {
+  const el = $('#depHint');
+  if (!W0 || !W0.hours.length) { el.textContent = ''; return; }
+  const now = Date.now(); let best = null;
+  W0.hours.forEach(x => {
+    if (x.t.getTime() <= now || x.t.getTime() > now + 14 * 3600e3) return;
+    if (!W0.sun.some(([a, b]) => x.t >= a && x.t <= b)) return;
+    const c = windAvg(r, 0, x), sc = c - x.rain * 0.15;
+    if (!best || sc > best.sc) best = { sc, c, x };
+  });
+  el.textContent = best ? `Melhor horário com luz do dia: ${hhmm(best.x.t)} (vento ${best.c > 0 ? '+' : ''}${best.c.toFixed(0)} km/h no trajeto, chuva ${best.x.rain}%)` : '';
+}
+$('#dep').onchange = e => { dep = +e.target.value; applyDep(); if (routes.length) { draw(); render(); } };
+
+// Elevação: amostra a rota e consulta altitudes
+async function loadElev(r) {
+  if (r.elev !== undefined) return;
+  r.elev = null;
+  const n = Math.min(100, Math.max(10, Math.round(r.dist / 150))), pts = [];
+  for (let k = 0; k < n; k++) {
+    const t = r.dist * k / (n - 1); let i = r.cum.findIndex(x => x >= t); if (i < 0) i = r.cum.length - 1;
+    pts.push({ d: t, c: r.coords[i] });
+  }
+  try {
+    const u = 'https://api.open-meteo.com/v1/elevation?latitude=' + pts.map(p => p.c[1].toFixed(5)).join(',') + '&longitude=' + pts.map(p => p.c[0].toFixed(5)).join(',');
+    const e = (await (await fetch(u)).json()).elevation;
+    const sm = e.map((v, i) => { const a = e.slice(Math.max(0, i - 1), i + 2); return a.reduce((x, y) => x + y, 0) / a.length; });
+    let up = 0, dn = 0;
+    for (let i = 1; i < sm.length; i++) { const df = sm[i] - sm[i - 1]; if (df > 0) up += df; else dn -= df; }
+    r.elev = { e: sm, d: pts.map(p => p.d), up, dn };
+  } catch (err) { r.elev = null; }
+}
+function drawElev(r) {
+  const box = $('#elevBox');
+  if (!r.elev) { box.hidden = true; return; }
+  box.hidden = false;
+  const { e, d, up, dn } = r.elev, lo = Math.min(...e), hi = Math.max(...e), H = 46;
+  const pt = (v, i) => `${(d[i] / r.dist * 300).toFixed(1)},${(H - 4 - (v - lo) / ((hi - lo) || 1) * (H - 10)).toFixed(1)}`;
+  const line = e.map((v, i) => (i ? 'L' : 'M') + pt(v, i)).join('');
+  $('#elev').innerHTML = `<path class="area" d="${line}L300,${H}L0,${H}Z"/><path class="ln" d="${line}"/>`;
+  elevSum = `Subida +${Math.round(up)} m · Descida −${Math.round(dn)} m · Altitude de ${Math.round(lo)} a ${Math.round(hi)} m`;
+  if (!scrub) $('#elevTxt').textContent = elevSum;
+}
+
+// Passar o mouse (ou o dedo) no gráfico mostra o ponto correspondente no mapa
+let elevSum = '', hov = null, scrub = false;
+function scrubAt(ev) {
+  const r = routes[sel]; if (!r || !r.elev) return;
+  const rc = $('#ew').getBoundingClientRect();
+  showAt(Math.min(1, Math.max(0, (ev.clientX - rc.left) / rc.width)) * r.dist, true);
+}
+function showAt(t, pan) {
+  const r = routes[sel], f = t / r.dist;
+  scrub = true;
+  let i = r.cum.findIndex(x => x >= t); i = i < 0 ? r.cum.length - 1 : Math.max(1, i);
+  const k = (t - r.cum[i - 1]) / ((r.cum[i] - r.cum[i - 1]) || 1), a = r.coords[i - 1], b = r.coords[i];
+  const ll = [a[1] + (b[1] - a[1]) * k, a[0] + (b[0] - a[0]) * k];
+  if (!hov) hov = L.circleMarker(ll, { radius: 9, color: '#fff', weight: 3, fillColor: C.acc, fillOpacity: 1, interactive: false }).addTo(map);
+  else hov.setLatLng(ll);
+  hov.bringToFront();
+  const sz = map.getSize(), pt = map.latLngToContainerPoint(ll), top = 130, bot = sz.y - ($('#sheet').offsetHeight + 24);
+  if (pan && (pt.x < 20 || pt.x > sz.x - 20 || pt.y < top || pt.y > bot)) map.panBy([pt.x - sz.x / 2, pt.y - (top + bot) / 2], { animate: false });
+  const { e, d } = r.elev;
+  let j = d.findIndex(x => x >= t); j = j < 0 ? e.length - 1 : Math.max(1, j);
+  const span = (d[j] - d[j - 1]) || 1, alt = e[j - 1] + (e[j] - e[j - 1]) * Math.min(1, (t - d[j - 1]) / span), g = (e[j] - e[j - 1]) / span * 100;
+  const cur = $('#elevCur'); cur.hidden = false; cur.style.left = (f * 100) + '%';
+  $('#elevTxt').textContent = `${fmtKm(t)} · ${Math.round(alt)} m · inclinação ${g > 0 ? '+' : ''}${g.toFixed(0)}%`;
+}
+function endScrub() {
+  scrub = false;
+  $('#elevCur').hidden = true;
+  if (hov) { map.removeLayer(hov); hov = null; }
+  if (elevSum) $('#elevTxt').textContent = elevSum;
+}
+(() => {
+  const ew = $('#ew');
+  ew.addEventListener('pointerdown', e => { try { ew.setPointerCapture(e.pointerId); } catch (err) {} scrubAt(e); });
+  ew.addEventListener('pointermove', scrubAt);
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => ew.addEventListener(n, endScrub));
+})();
+
+// Caminho inverso: passar o mouse (ou tocar) na rota do mapa mostra o ponto no gráfico
+function mapScrub(e) {
+  const r = routes[sel];
+  if (picking || !r || !r.elev || $('#sheet').hidden) return;
+  const p = map.latLngToContainerPoint(e.latlng); let prev = null, bd = 24, bt = -1;
+  for (let i = 0; i < r.coords.length; i++) {
+    const q = map.latLngToContainerPoint([r.coords[i][1], r.coords[i][0]]);
+    if (prev) {
+      const dx = q.x - prev.x, dy = q.y - prev.y, len2 = dx * dx + dy * dy || 1;
+      const k = Math.max(0, Math.min(1, ((p.x - prev.x) * dx + (p.y - prev.y) * dy) / len2));
+      const d = Math.hypot(prev.x + k * dx - p.x, prev.y + k * dy - p.y);
+      if (d < bd) { bd = d; bt = r.cum[i - 1] + k * (r.cum[i] - r.cum[i - 1]); }
+    }
+    prev = q;
+  }
+  if (bt >= 0) showAt(bt, false); else if (scrub) endScrub();
+}
+map.on('mousemove', mapScrub);
+map.on('click', mapScrub);
+
+// Vento: componente ao longo da rota (positivo = a favor, negativo = contra)
+function windAvg(r, from = 0, w = W) {
+  if (!w) return 0;
+  const to = (w.dir + 180) % 360; let s = 0, l = 0;
+  for (let i = from; i < r.coords.length - 1; i++) {
+    const d = r.cum[i + 1] - r.cum[i]; if (!d) continue;
+    s += w.speed * Math.cos(rad(to - brg(r.coords[i], r.coords[i + 1]))) * d; l += d;
+  }
+  return l ? s / l : 0;
+}
+function windSegs(r) { // trechos de ~250 m com a cor do efeito do vento
+  const out = [], to = W ? (W.dir + 180) % 360 : 0;
+  let cur = [r.coords[0]], s = 0, l = 0;
+  for (let i = 0; i < r.coords.length - 1; i++) {
+    const d = r.cum[i + 1] - r.cum[i];
+    if (W && d) { s += W.speed * Math.cos(rad(to - brg(r.coords[i], r.coords[i + 1]))) * d; l += d; }
+    cur.push(r.coords[i + 1]);
+    if (cur.length > 1 && (r.cum[i + 1] - (out.len || 0) >= 250 || i === r.coords.length - 2)) {
+      const k = l ? s / l : 0;
+      out.push({ c: cur, col: k > 3 ? C.good : k < -3 ? C.bad : C.acc });
+      out.len = r.cum[i + 1]; cur = [r.coords[i + 1]]; s = 0; l = 0;
+    }
+  }
+  return out;
+}
+
+function draw(fit) {
+  endScrub();
+  layer.clearLayers();
+  routes.forEach((r, i) => {
+    if (i === sel) return;
+    L.polyline(r.coords.map(c => [c[1], c[0]]), { color: '#7f93a0', weight: 6, opacity: .85 })
+      .on('click', () => pickRoute(i)).addTo(layer);
+  });
+  const r = routes[sel], ll = r.coords.map(c => [c[1], c[0]]);
+  L.polyline(ll, { color: '#fff', weight: 11, opacity: .95 }).addTo(layer);
+  windSegs(r).forEach(sg => L.polyline(sg.c.map(c => [c[1], c[0]]), { color: sg.col, weight: 6, lineCap: 'butt' }).addTo(layer));
+  L.circleMarker([dest.lat, dest.lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#d6452f', fillOpacity: 1 }).addTo(layer);
+  if (fit) map.fitBounds(L.latLngBounds(ll), { paddingTopLeft: [30, 130], paddingBottomRight: [30, 340] });
+}
+
+function render() {
+  const sheet = $('#sheet');
+  if (!routes.length) { sheet.hidden = true; return; }
+  sheet.hidden = false;
+  const r = routes[sel], i0 = watch != null ? r.idx : 0;
+  const remain = (r.dist - r.cum[i0]) / 1000;
+  const comp = windAvg(r, i0);
+  const useLive = watch != null && liveSpeed && movN >= 15; // velocidade medida já inclui o vento
+  const h = remain / (useLive ? Math.max(5, liveSpeed) : Math.max(5, speed + 0.4 * comp));
+  $('#spdNote').textContent = useLive ? 'Estimativa pela sua velocidade atual' : 'Estimativa com sua velocidade típica';
+  const t0 = watch != null ? Date.now() : depTime(), eta = new Date(t0 + h * 3600e3);
+  $('#chips').innerHTML = '';
+  routes.forEach((x, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip' + (i === sel ? ' on' : '');
+    b.textContent = `Rota ${i + 1} · ${fmtKm(x.dist)}`;
+    b.onclick = () => pickRoute(i);
+    $('#chips').appendChild(b);
+  });
+  $('#mTime').textContent = fmtTime(h);
+  $('#mDist').textContent = fmtKm(remain * 1000);
+  $('#mEta').textContent = hhmm(eta);
+  drawElev(r);
+  if (watch == null) depHint(r);
+  const warn = $('#warn');
+  if (W) {
+    $('#wArrow').style.transform = `rotate(${(W.dir + 180) % 360}deg)`;
+    const kind = Math.abs(comp) < 3 ? ['Vento lateral ou fraco', ''] : comp > 0 ? ['Vento a favor', 'tail'] : ['Vento contra', 'head'];
+    $('#wTitle').textContent = kind[0]; $('#wTitle').className = 't ' + kind[1];
+    $('#wSub').textContent = `${Math.round(W.speed)} km/h de ${CARD[Math.round(W.dir / 45) % 8]} · ${comp > 0 ? '+' : ''}${comp.toFixed(0)} km/h no trajeto` + (Math.abs(comp) >= 3 && watch == null ? ` · na volta: vento ${comp > 0 ? 'contra' : 'a favor'}` : '');
+    $('#cTitle').textContent = `${Math.round(W.temp)}°C · ${wxText(W.code)}`;
+    $('#cSub').textContent = `Sensação de ${Math.round(W.feels)}°C` + (W.rain != null ? ` · chuva ${W.rain}% hoje` : '');
+    const isDay = d => W0.sun.some(([a, b]) => d >= a && d <= b), msgs = [];
+    if (W0.sun.length && (!isDay(new Date(t0)) || !isDay(eta))) msgs.push(`Parte do trajeto fica sem luz do dia (pôr do sol às ${hhmm(W0.sunset)}). Leve luzes e redobre a atenção.`);
+    const rmax = Math.max(0, ...W0.hours.filter(x => x.t.getTime() >= t0 - 1800e3 && x.t <= eta).map(x => x.rain));
+    if (rmax >= 50) msgs.push(`Há ${rmax}% de chance de chuva durante o trajeto.`);
+    warn.hidden = !msgs.length; warn.textContent = msgs.join(' ');
+  } else {
+    ['#wTitle', '#wSub', '#cTitle', '#cSub'].forEach(s => $(s).textContent = s === '#wTitle' || s === '#cTitle' ? '–' : '');
+    warn.hidden = true;
+  }
+}
+
+$('#clear').onclick = () => { stopLive(); routes = []; dest = null; layer.clearLayers(); $('#q').value = ''; render(); };
+
+// Instruções de curva a curva (com voz opcional)
+let voiceOn = false;
+try { voiceOn = localStorage.getItem('voice') === '1'; } catch (e) {}
+const DIR = m => /left/.test(m) ? 'esquerda' : 'direita';
+function stepText(s) {
+  const nm = s.name ? ` em ${s.name}` : '', m = s.mod, t = s.type;
+  if (t === 'arrive') return 'Você chegou ao destino';
+  if (t === 'roundabout' || t === 'rotary' || t === 'roundabout turn') return 'Entre na rotatória' + (s.exit ? ` e pegue a ${s.exit}ª saída` : '') + nm;
+  if (m === 'uturn') return 'Faça o retorno' + nm;
+  if (t === 'fork') return `Na bifurcação, mantenha-se à ${DIR(m)}` + nm;
+  if (t === 'end of road') return `No fim da rua, vire à ${DIR(m)}` + nm;
+  if (m === 'sharp left' || m === 'sharp right') return `Faça uma curva fechada à ${DIR(m)}` + nm;
+  if (m === 'slight left' || m === 'slight right') return `Curve levemente à ${DIR(m)}` + nm;
+  if (m === 'left' || m === 'right') return `Vire à ${DIR(m)}` + nm;
+  return 'Siga em frente' + nm;
+}
+const stepAngle = s => s.type === 'arrive' ? 0 : s.mod === 'uturn' ? 180 : s.mod === 'sharp left' ? -135 : s.mod === 'sharp right' ? 135 : s.mod === 'left' ? -90 : s.mod === 'right' ? 90 : s.mod === 'slight left' ? -45 : s.mod === 'slight right' ? 45 : 0;
+function say(txt) {
+  if (!voiceOn || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(txt); u.lang = 'pt-BR';
+  speechSynthesis.speak(u);
+}
+function updateNav(r) {
+  if (!r || !r.steps || !r.steps.length || watch == null) { $('#nav').hidden = true; return; }
+  const pos = r.cum[r.idx], ns = r.steps.find(s => s.at > pos + 15) || r.steps[r.steps.length - 1], d = Math.max(0, ns.at - pos);
+  $('#nav').hidden = false;
+  $('#navArrow').style.transform = `rotate(${stepAngle(ns)}deg)`;
+  $('#navDist').textContent = d < 1000 ? Math.round(d / 10) * 10 + ' m' : fmtKm(d);
+  const txt = stepText(ns);
+  $('#navTxt').textContent = txt;
+  if (d < 40 && ns.said < 2) { ns.said = 2; say(txt); }
+  else if (d >= 40 && d < 160 && ns.said < 1) { ns.said = 1; say(`Em ${Math.round(d / 10) * 10} metros, ${txt.charAt(0).toLowerCase() + txt.slice(1)}`); }
+}
+function paintVoice() {
+  $('#voice').textContent = voiceOn ? 'Voz: ligada' : 'Voz: desligada';
+  $('#voice').setAttribute('aria-pressed', String(voiceOn));
+}
+$('#voice').onclick = () => {
+  voiceOn = !voiceOn;
+  try { localStorage.setItem('voice', voiceOn ? '1' : '0'); } catch (e) {}
+  paintVoice();
+  if (voiceOn) say('Voz ligada');
+};
+paintVoice();
+
+// Exportar a rota em GPX (para apps de ciclismo e GPS de bicicleta)
+$('#gpx').onclick = () => {
+  const r = routes[sel]; if (!r) return;
+  const pts = r.coords.map(c => `<trkpt lat="${c[1].toFixed(6)}" lon="${c[0].toFixed(6)}"/>`).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Mapa de ciclismo" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>Rota de ciclismo</name><trkseg>${pts}</trkseg></trk></gpx>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([xml], { type: 'application/gpx+xml' }));
+  a.download = 'rota-ciclismo.gpx'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('Rota baixada em GPX.');
+};
+
+// Acompanhamento ao vivo
+function onPos(p) {
+  if (!routes.length) return;
+  const ll = [p.coords.latitude, p.coords.longitude], now = Date.now();
+  let h = p.coords.heading, v = p.coords.speed != null ? p.coords.speed * 3.6 : null;
+  if (lastLL) {
+    const dd = dist([lastLL[1], lastLL[0]], [ll[1], ll[0]]);
+    if ((h == null || isNaN(h)) && dd > 4) h = brg([lastLL[1], lastLL[0]], [ll[1], ll[0]]);
+    if (v == null && now > lastT) v = dd / ((now - lastT) / 1000) * 3.6;
+  }
+  if (h != null && !isNaN(h)) heading = h;
+  lastLL = ll; lastT = now;
+  origin = { lat: ll[0], lng: ll[1] };
+  me.setLatLng(ll).setOpacity(1);
+  me.getElement().querySelector('svg').style.transform = `rotate(${heading}deg)`;
+  $('#mSpeed').textContent = v != null ? Math.round(v) : '–';
+  if (v != null && v >= 3 && v < 70) { liveSpeed = (liveSpeed == null ? speed : liveSpeed) * 0.97 + v * 0.03; movN++; }
+  const r = routes[sel], pp = [ll[1], ll[0]]; let best = 0, bd = Infinity;
+  r.coords.forEach((c, i) => { const d = (c[0] - pp[0]) ** 2 + (c[1] - pp[1]) ** 2; if (d < bd) { bd = d; best = i; } });
+  r.idx = best;
+  const off = Math.min(best > 0 ? segDist(pp, r.coords[best - 1], r.coords[best]) : Infinity,
+                       best < r.coords.length - 1 ? segDist(pp, r.coords[best], r.coords[best + 1]) : Infinity);
+  if (off > 60 && now - lastRe > 20000) { lastRe = now; toast('Você saiu da rota. Recalculando…'); getRoutes(false); }
+  render();
+  updateNav(r);
+  if (follow) map.setView(ll, Math.max(map.getZoom(), 16), { animate: true });
+}
+async function keepAwake() { try { lock = await navigator.wakeLock.request('screen'); } catch (e) { lock = null; } }
+document.addEventListener('visibilitychange', () => { if (watch != null && document.visibilityState === 'visible') keepAwake(); });
+function startLive() {
+  if (!routes.length) return;
+  if (!navigator.geolocation) { toast('Este navegador não oferece localização.'); return; }
+  follow = true; lastLL = null; liveSpeed = null; movN = 0;
+  dep = -1; applyDep(); $('#depBox').hidden = true;
+  (routes[sel].steps || []).forEach(s => s.said = 0);
+  $('.top').classList.add('hide');
+  draw(false);
+  watch = navigator.geolocation.watchPosition(onPos, () => toast('Sem sinal de GPS.'), { enableHighAccuracy: true, maximumAge: 2000 });
+  me.getElement().firstChild.classList.add('live');
+  $('#cSpeed').hidden = false;
+  $('#live').textContent = 'Parar';
+  keepAwake();
+  updateNav(routes[sel]);
+}
+function stopLive() {
+  if (movN >= 60 && liveSpeed) { speed = Math.round(liveSpeed); try { localStorage.setItem('speed', speed); } catch (e) {} }
+  liveSpeed = null; movN = 0;
+  $('.top').classList.remove('hide'); $('#nav').hidden = true;
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (W0 && W0.hours.length) { $('#depBox').hidden = false; $('#dep').value = '-1'; }
+  if (watch != null) navigator.geolocation.clearWatch(watch);
+  watch = null;
+  if (lock) { lock.release().catch(() => {}); lock = null; }
+  me.getElement().firstChild.classList.remove('live');
+  $('#cSpeed').hidden = true;
+  $('#live').textContent = 'Iniciar';
+  if (routes.length) routes[sel].idx = 0;
+}
+$('#live').onclick = () => watch != null ? (stopLive(), render()) : startLive();
+$('#loc').onclick = () => {
+  if (watch != null && lastLL) { follow = true; map.setView(lastLL, 16); }
+  else locate(true);
+};
+
+locate(true);
+</script>
+</body>
+</html>
